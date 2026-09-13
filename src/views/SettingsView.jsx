@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { colorVar } from '../lib/model.js'
-import { CURRENCIES, DEFAULT_CURRENCY } from '../lib/savings.js'
+import { CURRENCIES, currencyLabel, hasCurrency } from '../lib/savings.js'
 import { exportJSON, parseImport, download } from '../lib/storage.js'
 import { GoalIcon } from '../lib/goalIcons.jsx'
 
@@ -177,16 +177,22 @@ export default function SettingsView({
             </div>
           </Row>
 
-          <Row title="Currency" sub="What savings goals are counted in">
+          <Row
+            title="Currency"
+            sub={hasCurrency(settings.currency)
+              ? 'What savings goals are counted in'
+              : 'Not set yet — your first savings goal will ask'}
+          >
             <select
               className="input"
               style={{ width: 'auto' }}
               aria-label="Currency"
-              value={settings.currency || DEFAULT_CURRENCY}
-              onChange={(e) => setSettings({ currency: e.target.value })}
+              value={hasCurrency(settings.currency) ? settings.currency : ''}
+              onChange={(e) => setSettings({ currency: e.target.value || null })}
             >
+              <option value="">Choose a currency…</option>
               {CURRENCIES.map((c) => (
-                <option key={c.code} value={c.code}>{c.label}</option>
+                <option key={c.code} value={c.code}>{currencyLabel(c)}</option>
               ))}
             </select>
           </Row>

@@ -25,38 +25,61 @@ export function statusOfPot(pot) {
 
 /* ---------------------------------------------------------------- money */
 
-/* The currencies the picker offers. Anything Intl knows about would work —
-   these are just the ones worth putting one tap away. */
+/* The currencies the picker offers, alphabetically — there is deliberately no
+   default among them. Money is the one thing in here the app cannot guess at:
+   a pot labelled in the wrong currency is worse than one not labelled yet, so
+   the first savings goal asks outright and every amount is unlabelled until it
+   has been answered. */
 export const CURRENCIES = [
-  { code: 'GBP', label: 'Pound (£)' },
-  { code: 'USD', label: 'Dollar ($)' },
-  { code: 'EUR', label: 'Euro (€)' },
-  { code: 'CAD', label: 'Canadian dollar (C$)' },
-  { code: 'AUD', label: 'Australian dollar (A$)' },
-  { code: 'NZD', label: 'New Zealand dollar (NZ$)' },
+  { code: 'AUD', symbol: 'A$',  name: 'Australian dollar' },
+  { code: 'BRL', symbol: 'R$',  name: 'Brazilian real' },
+  { code: 'CAD', symbol: 'C$',  name: 'Canadian dollar' },
+  { code: 'CNY', symbol: '¥',   name: 'Chinese yuan' },
+  { code: 'CZK', symbol: 'Kč',  name: 'Czech koruna' },
+  { code: 'DKK', symbol: 'kr',  name: 'Danish krone' },
+  { code: 'EUR', symbol: '€',   name: 'Euro' },
+  { code: 'HKD', symbol: 'HK$', name: 'Hong Kong dollar' },
+  { code: 'INR', symbol: '₹',   name: 'Indian rupee' },
+  { code: 'JPY', symbol: '¥',   name: 'Japanese yen' },
+  { code: 'MXN', symbol: 'MX$', name: 'Mexican peso' },
+  { code: 'NZD', symbol: 'NZ$', name: 'New Zealand dollar' },
+  { code: 'NOK', symbol: 'kr',  name: 'Norwegian krone' },
+  { code: 'PLN', symbol: 'zł',  name: 'Polish złoty' },
+  { code: 'GBP', symbol: '£',   name: 'Pound sterling' },
+  { code: 'SGD', symbol: 'S$',  name: 'Singapore dollar' },
+  { code: 'ZAR', symbol: 'R',   name: 'South African rand' },
+  { code: 'SEK', symbol: 'kr',  name: 'Swedish krona' },
+  { code: 'CHF', symbol: 'CHF', name: 'Swiss franc' },
+  { code: 'AED', symbol: 'AED', name: 'UAE dirham' },
+  { code: 'USD', symbol: '$',   name: 'US dollar' },
 ]
 
-export const DEFAULT_CURRENCY = 'USD'
+/** "£ Pound sterling (GBP)" — what the picker shows for one currency. */
+export const currencyLabel = (c) => `${c.symbol} ${c.name} (${c.code})`
+
+/** Whether a currency has actually been chosen. Until it has, amounts still
+    add up and still render — they simply carry no symbol, rather than
+    borrowing one nobody picked. */
+export const hasCurrency = (currency) => CURRENCIES.some((c) => c.code === currency)
 
 /** Whole amounts lose the ".00" — most pots are priced in round numbers, and
     "£1,200" reads faster than "£1,200.00". Pence show when there are any. */
-export function formatMoney(value, currency = DEFAULT_CURRENCY) {
+export function formatMoney(value, currency) {
   const n = Number(value) || 0
   const whole = Math.abs(n - Math.round(n)) < 0.005
+  const rounded = whole ? Math.round(n) : n
+  const digits = { minimumFractionDigits: whole ? 0 : 2, maximumFractionDigits: whole ? 0 : 2 }
+  if (!hasCurrency(currency)) return new Intl.NumberFormat(undefined, digits).format(rounded)
   try {
-    return new Intl.NumberFormat(undefined, {
-      style: 'currency',
-      currency,
-      minimumFractionDigits: whole ? 0 : 2,
-      maximumFractionDigits: whole ? 0 : 2,
-    }).format(whole ? Math.round(n) : n)
+    return new Intl.NumberFormat(undefined, { style: 'currency', currency, ...digits }).format(rounded)
   } catch {
-    return `${currencySymbol(currency)}${(whole ? Math.round(n) : n).toFixed(whole ? 0 : 2)}`
+    return `${currencySymbol(currency)}${rounded.toFixed(whole ? 0 : 2)}`
   }
 }
 
-/** Just the symbol, for prefixing an amount input. */
-export function currencySymbol(currency = DEFAULT_CURRENCY) {
+/** Just the symbol, for prefixing an amount input. Empty until one is picked. */
+export function currencySymbol(currency) {
+  if (!hasCurrency(currency)) return ''
   try {
     return new Intl.NumberFormat(undefined, { style: 'currency', currency })
       .formatToParts(0)

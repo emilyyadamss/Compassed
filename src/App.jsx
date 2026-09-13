@@ -29,7 +29,7 @@ import {
   inPlay, statusOf, withStatus, revisitLabel, withUnit,
 } from './lib/model.js'
 import {
-  DEFAULT_CURRENCY, SAVINGS_STATUS, formatMoney, indexDeposits, isSaving,
+  SAVINGS_STATUS, formatMoney, hasCurrency, indexDeposits, isSaving,
   newDeposit, newPot, potStats, withPotStatus,
 } from './lib/savings.js'
 import { goalStats } from './lib/stats.js'
@@ -81,7 +81,8 @@ export default function App() {
   const tasks = state.tasks || []
   const pots = state.pots || []
   const deposits = state.deposits || []
-  const currency = settings.currency || DEFAULT_CURRENCY
+  // Null until the first savings goal asks for one. Nothing downstream guesses.
+  const currency = hasCurrency(settings.currency) ? settings.currency : null
   const userId = session?.user?.id ?? null
 
   /* ------------------------------------------------------------------ auth */
@@ -346,11 +347,22 @@ export default function App() {
 
   /* --------------------------------------------------------------- savings */
 
-  const savePot = useCallback((pot) => {
+  /* The editor hands back the currency along with the pot: it is an app-wide
+     setting, but the moment you are asked for a price is the moment it makes
+     sense to be asked what the price is in. */
+  const savePot = useCallback((pot, pickedCurrency) => {
     setState((s) => {
       const list = s.pots || []
       const exists = list.some((p) => p.id === pot.id)
-      return { ...s, pots: exists ? list.map((p) => (p.id === pot.id ? pot : p)) : [...list, pot] }
+      const next = {
+        ...s,
+        pots: exists ? list.map((p) => (p.id === pot.id ? pot : p)) : [...list, pot],
+      }
+      if (pickedCurrency && pickedCurrency !== s.settings.currency) {
+        next.settings = { ...s.settings, currency: pickedCurrency }
+        putSettings(userId, next.settings).catch(syncFail('Could not save your currency'))
+      }
+      return next
     })
     putPot(userId, pot).catch(syncFail('Could not save that savings goal'))
     setEditingPot(null)

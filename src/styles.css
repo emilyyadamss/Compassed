@@ -992,23 +992,36 @@ textarea.input {
 /* archive list */
 /* --------------------------------------------------------------- savings */
 
-/* An amount input with its currency symbol sitting inside the field, so the
-   number itself stays the thing you read. */
-.money-input { display: flex; align-items: stretch; }
-.money-input .money-symbol {
+/* An amount input wearing its currency symbol: inputs here are a bare
+   underline, so the symbol shares that underline rather than sitting in a box
+   of its own. Until a currency is picked there is no symbol to show and the
+   field is simply a number. */
+.money-input {
   display: flex;
   align-items: center;
-  padding: 0 10px;
-  border: 1px solid var(--border);
-  border-right: none;
-  background: var(--surface-2);
-  color: var(--text-secondary);
+  gap: 7px;
+  border-bottom: 1px solid var(--border);
+  transition: border-color 160ms var(--ease);
+}
+.money-input .money-symbol {
   font-family: var(--font-mono);
   font-size: 13px;
+  color: var(--text-secondary);
   flex: none;
 }
-.money-input .input { flex: 1; min-width: 0; }
-.money-input:focus-within .money-symbol { border-color: var(--accent-ring); color: var(--text-primary); }
+.money-input .input { border-bottom: none; flex: 1; min-width: 0; }
+.money-input:focus-within { border-color: var(--accent-ring); }
+.money-input:focus-within .money-symbol { color: var(--text-primary); }
+
+/* Price and currency sit on one line: the two halves of the same question. */
+.price-row { display: flex; gap: 14px; align-items: flex-end; }
+.price-row .money-input { flex: 1 1 140px; min-width: 0; }
+.price-row .price-currency { flex: 0 1 200px; min-width: 0; }
+
+@media (max-width: 520px) {
+  .price-row { flex-wrap: wrap; gap: 10px; }
+  .price-row .money-input, .price-row .price-currency { flex: 1 1 100%; }
+}
 
 /* A bought pot is finished business: it keeps its colour, at half voice. */
 .goal-card.is-bought { border-style: dashed; }

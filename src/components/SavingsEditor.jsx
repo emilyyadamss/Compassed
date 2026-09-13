@@ -3,7 +3,8 @@ import { Trash2 } from 'lucide-react'
 import Modal from './Modal.jsx'
 import { COLOR_SLOTS, colorVar } from '../lib/model.js'
 import {
-  SAVINGS_STATUS, currencySymbol, formatMoney, statusOfPot, toMoney, withPotStatus,
+  CURRENCIES, SAVINGS_STATUS, currencyLabel, currencySymbol, formatMoney,
+  hasCurrency, statusOfPot, toMoney, withPotStatus,
 } from '../lib/savings.js'
 import { SAVINGS_ICON_CHOICES, GoalIcon } from '../lib/goalIcons.jsx'
 
@@ -11,14 +12,22 @@ export default function SavingsEditor({ pot, isNew, currency, saved = 0, onSave,
   // A price of 0 shows as an empty field: typing a number into a box already
   // holding "0" is a small, avoidable annoyance.
   const [draft, setDraft] = useState(() => ({ ...pot, target: pot.target || '' }))
+  /* Currency is an app-wide setting, but this is where it gets asked: the first
+     savings goal has to answer it before it can be saved, and after that the
+     picker just shows what every pot is already counted in. */
+  const [picked, setPicked] = useState(currency || '')
   const set = (patch) => setDraft((d) => ({ ...d, ...patch }))
-  const valid = draft.name.trim().length > 0
+  const named = draft.name.trim().length > 0
+  const chosen = hasCurrency(picked)
+  const valid = named && chosen
   const target = Math.max(0, toMoney(draft.target))
   const status = statusOfPot(draft)
+  const symbol = currencySymbol(picked)
+  const switching = hasCurrency(currency) && picked !== currency
 
   const submit = () => {
     if (!valid) return
-    onSave({ ...draft, name: draft.name.trim(), note: (draft.note || '').trim(), target })
+    onSave({ ...draft, name: draft.name.trim(), note: (draft.note || '').trim(), target }, picked)
   }
 
   return (
@@ -59,24 +68,41 @@ export default function SavingsEditor({ pot, isNew, currency, saved = 0, onSave,
 
       <div className="field">
         <label htmlFor="s-target">What does it cost?</label>
-        <div className="money-input">
-          <span className="money-symbol" aria-hidden="true">{currencySymbol(currency)}</span>
-          <input
-            id="s-target"
-            className="input"
-            type="number"
-            min="0"
-            step="any"
-            inputMode="decimal"
-            value={draft.target}
-            onChange={(e) => set({ target: e.target.value })}
-            onKeyDown={(e) => { if (e.key === 'Enter' && valid) submit() }}
-          />
+        <div className="price-row">
+          <div className="money-input">
+            {symbol && <span className="money-symbol" aria-hidden="true">{symbol}</span>}
+            <input
+              id="s-target"
+              className="input"
+              type="number"
+              min="0"
+              step="any"
+              inputMode="decimal"
+              value={draft.target}
+              onChange={(e) => set({ target: e.target.value })}
+              onKeyDown={(e) => { if (e.key === 'Enter' && valid) submit() }}
+            />
+          </div>
+          <select
+            className="input price-currency"
+            aria-label="Currency"
+            value={picked}
+            onChange={(e) => setPicked(e.target.value)}
+          >
+            <option value="">Currency…</option>
+            {CURRENCIES.map((c) => (
+              <option key={c.code} value={c.code}>{currencyLabel(c)}</option>
+            ))}
+          </select>
         </div>
         <span className="hint">
-          {target > 0
-            ? `${formatMoney(target, currency)} to find${saved > 0 ? ` · ${formatMoney(saved, currency)} already in` : ''}. A rough price is fine, you can change it later.`
-            : 'Leave it at 0 if you don’t know the price yet, the pot still adds up what you put in, it just has nothing to fill.'}
+          {!chosen
+            ? 'Pick the currency you save in, it’s asked once and every savings goal uses it.'
+            : switching
+              ? `Every savings goal will be shown in ${picked} from now on. Nothing is converted, the numbers stay exactly as you entered them.`
+              : target > 0
+                ? `${formatMoney(target, picked)} to find${saved > 0 ? ` · ${formatMoney(saved, picked)} already in` : ''}. A rough price is fine, you can change it later.`
+                : 'Leave the price blank if you don’t know it yet, the pot still adds up what you put in, it just has nothing to fill.'}
         </span>
       </div>
 

@@ -79,7 +79,9 @@ export default function DepositModal({ pots, byPot, potId, currency, onSave, onC
         <div className="field">
           <label htmlFor="d-amt">How much?</label>
           <div className="money-input">
-            <span className="money-symbol" aria-hidden="true">{currencySymbol(currency)}</span>
+            {currencySymbol(currency) && (
+              <span className="money-symbol" aria-hidden="true">{currencySymbol(currency)}</span>
+            )}
             <input
               id="d-amt"
               className="input"

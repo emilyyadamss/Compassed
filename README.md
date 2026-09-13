@@ -149,9 +149,9 @@ Goals are practices. **Savings** is the other half: the things you're saving up
 *for* — a car, a laptop, a trip — each with what it costs and a bar showing how
 close you are to buying it.
 
-- Add an item with its price. A rough price is fine, and 0 is allowed if you
-  don't know it yet — the pot still totals what you put in, it just has nothing
-  to fill.
+- Add an item with its price. A rough price is fine, and you can leave it blank
+  if you don't know it yet — the pot still totals what you put in, it just has
+  nothing to fill.
 - **Add money** whenever you put something aside. Every payment is a dated
   record with an optional note, listed on the item's page.
 - Needed some of it back? Switch the dialog to **Take out** — a withdrawal is
@@ -165,7 +165,12 @@ close you are to buying it.
 
 Savings sit outside the nudge entirely. A pot measures a balance against a
 price, not a practice going quiet, so it's never scored, never ranked, and never
-the thing Compassed points you at. Set the currency in Settings → Appearance.
+the thing Compassed points you at.
+
+There is no default currency. The first savings goal you add asks which one you
+save in — right next to the price, where the question actually comes up — and
+every pot uses it from then on. Change it later in Settings → Appearance;
+nothing is converted, the numbers stay exactly as you entered them.
 
 ## Categories
 
