@@ -29,7 +29,7 @@ import {
   inPlay, statusOf, withStatus, revisitLabel, withUnit,
 } from './lib/model.js'
 import {
-  SAVINGS_STATUS, formatMoney, hasCurrency, indexDeposits, isSaving,
+  DEFAULT_CURRENCY, SAVINGS_STATUS, formatMoney, hasCurrency, indexDeposits, isSaving,
   newDeposit, newPot, potStats, withPotStatus,
 } from './lib/savings.js'
 import { goalStats } from './lib/stats.js'
@@ -94,8 +94,8 @@ export default function App() {
   const tasks = state.tasks || []
   const pots = state.pots || []
   const deposits = state.deposits || []
-  // Null until the first savings goal asks for one. Nothing downstream guesses.
-  const currency = hasCurrency(settings.currency) ? settings.currency : null
+  // US dollars until a different currency is picked in the savings editor.
+  const currency = hasCurrency(settings.currency) ? settings.currency : DEFAULT_CURRENCY
   const userId = session?.user?.id ?? null
 
   /* ------------------------------------------------------------------ auth */

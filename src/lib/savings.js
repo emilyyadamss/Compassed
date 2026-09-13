@@ -25,11 +25,8 @@ export function statusOfPot(pot) {
 
 /* ---------------------------------------------------------------- money */
 
-/* The currencies the picker offers, alphabetically — there is deliberately no
-   default among them. Money is the one thing in here the app cannot guess at:
-   a pot labelled in the wrong currency is worse than one not labelled yet, so
-   the first savings goal asks outright and every amount is unlabelled until it
-   has been answered. */
+/* The currencies the picker offers, alphabetically. Until one is picked the
+   app assumes US dollars, and the savings editor lets you switch. */
 export const CURRENCIES = [
   { code: 'AUD', symbol: 'A$',  name: 'Australian dollar' },
   { code: 'BRL', symbol: 'R$',  name: 'Brazilian real' },
@@ -53,6 +50,9 @@ export const CURRENCIES = [
   { code: 'AED', symbol: 'AED', name: 'UAE dirham' },
   { code: 'USD', symbol: '$',   name: 'US dollar' },
 ]
+
+/** The currency amounts are shown in when none has been picked yet. */
+export const DEFAULT_CURRENCY = 'USD'
 
 /** "£ Pound sterling (GBP)" — what the picker shows for one currency. */
 export const currencyLabel = (c) => `${c.symbol} ${c.name} (${c.code})`

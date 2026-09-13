@@ -277,7 +277,7 @@ export function taskOrder(a, b) {
 
 export const DEFAULT_SETTINGS = {
   theme: 'system',       // 'system' | 'light' | 'dark'
-  currency: null,        // savings currency — picked, never assumed
+  currency: null,        // savings currency — shown as USD until picked
   weekStart: 1,          // 0 Sun, 1 Mon
   recencyWeight: 50,     // 0–100; deficit weight is the complement
   staleAfterDays: 4,     // a goal starts feeling neglected after this long
