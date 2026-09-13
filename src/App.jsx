@@ -43,16 +43,29 @@ import homeIconLight from './assets/home-light.png'
 import settingsIcon from './assets/settings.png'
 import settingsIconLight from './assets/settings-light.png'
 
-const EMPTY_STATE = {
-  goals: [], entries: [], tasks: [], pots: [], deposits: [], settings: { ...DEFAULT_SETTINGS },
+// The theme lives in the db, which loads after the first paint. Remember the
+// last one locally so the loader and pre-auth screens don't flash the wrong mode.
+const THEME_KEY = 'theme'
+const cachedTheme = () => {
+  try {
+    const t = localStorage.getItem(THEME_KEY)
+    return t === 'light' || t === 'dark' ? t : DEFAULT_SETTINGS.theme
+  } catch {
+    return DEFAULT_SETTINGS.theme
+  }
 }
+
+const emptyState = () => ({
+  goals: [], entries: [], tasks: [], pots: [], deposits: [],
+  settings: { ...DEFAULT_SETTINGS, theme: cachedTheme() },
+})
 
 export default function App() {
   // undefined = auth not checked yet, null = signed out, object = signed in.
   const [session, setSession] = useState(undefined)
   // Pre-auth screen: 'landing' shows the marketing page, 'signin'/'signup' show the auth form.
   const [authView, setAuthView] = useState('landing')
-  const [state, setState] = useState(EMPTY_STATE)
+  const [state, setState] = useState(emptyState)
   const [dataLoading, setDataLoading] = useState(false)
   const [view, setView] = useState({ name: 'dashboard' })
   const [editing, setEditing] = useState(null)     // { goal, isNew }
@@ -101,7 +114,7 @@ export default function App() {
 
   /* --------------------------------------------------------- load from db */
   useEffect(() => {
-    if (!userId) { setState(EMPTY_STATE); return }
+    if (!userId) { setState(emptyState()); return }
     let cancelled = false
     setDataLoading(true)
     fetchState(userId)
@@ -116,6 +129,7 @@ export default function App() {
     const root = document.documentElement
     if (settings.theme === 'system') root.removeAttribute('data-theme')
     else root.setAttribute('data-theme', settings.theme)
+    try { localStorage.setItem(THEME_KEY, settings.theme) } catch { /* private mode */ }
   }, [settings.theme])
 
   /* ------------------------------------------------------------- derived */
