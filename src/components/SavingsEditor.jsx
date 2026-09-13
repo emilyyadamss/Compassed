@@ -51,7 +51,7 @@ export default function SavingsEditor({ pot, isNew, currency, saved = 0, onSave,
           id="s-name"
           className="input"
           value={draft.name}
-          placeholder="New laptop, car, trip to Japan…"
+          placeholder="New laptop, car, house..."
           onChange={(e) => set({ name: e.target.value })}
           onKeyDown={(e) => { if (e.key === 'Enter' && valid) submit() }}
         />
@@ -76,7 +76,7 @@ export default function SavingsEditor({ pot, isNew, currency, saved = 0, onSave,
         <span className="hint">
           {target > 0
             ? `${formatMoney(target, currency)} to find${saved > 0 ? ` · ${formatMoney(saved, currency)} already in` : ''}. A rough price is fine, you can change it later.`
-            : 'Leave it at 0 if you don’t know the price yet — the pot still adds up what you put in, it just has nothing to fill.'}
+            : 'Leave it at 0 if you don’t know the price yet, the pot still adds up what you put in, it just has nothing to fill.'}
         </span>
       </div>
 

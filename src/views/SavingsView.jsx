@@ -21,7 +21,7 @@ export default function SavingsView({ pots, byPot, currency, onOpen, onDeposit, 
       <div className="empty">
         <h3>Nothing on the list yet</h3>
         <p>
-          Add the thing you are saving up for — a car, a laptop, a trip — with what it costs.
+          Add the thing you are saving up for. A car, a laptop, a trip, with what it costs.
           Then put money in whenever you put money aside, and the bar tells you how close it is.
         </p>
         <button className="btn btn-primary" onClick={onNewPot}>Add something to save for</button>

@@ -36,7 +36,7 @@ export const CURRENCIES = [
   { code: 'NZD', label: 'New Zealand dollar (NZ$)' },
 ]
 
-export const DEFAULT_CURRENCY = 'GBP'
+export const DEFAULT_CURRENCY = 'USD'
 
 /** Whole amounts lose the ".00" — most pots are priced in round numbers, and
     "£1,200" reads faster than "£1,200.00". Pence show when there are any. */
