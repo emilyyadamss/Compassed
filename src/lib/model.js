@@ -277,6 +277,7 @@ export function taskOrder(a, b) {
 
 export const DEFAULT_SETTINGS = {
   theme: 'system',       // 'system' | 'light' | 'dark'
+  currency: 'GBP',       // what savings pots are counted in
   weekStart: 1,          // 0 Sun, 1 Mon
   recencyWeight: 50,     // 0–100; deficit weight is the complement
   staleAfterDays: 4,     // a goal starts feeling neglected after this long

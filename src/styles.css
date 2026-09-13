@@ -990,6 +990,45 @@ textarea.input {
 .choice .s { font-size: 12.5px; color: var(--text-secondary); line-height: 1.45; }
 
 /* archive list */
+/* --------------------------------------------------------------- savings */
+
+/* An amount input with its currency symbol sitting inside the field, so the
+   number itself stays the thing you read. */
+.money-input { display: flex; align-items: stretch; }
+.money-input .money-symbol {
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-right: none;
+  background: var(--surface-2);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  flex: none;
+}
+.money-input .input { flex: 1; min-width: 0; }
+.money-input:focus-within .money-symbol { border-color: var(--accent-ring); color: var(--text-primary); }
+
+/* A bought pot is finished business: it keeps its colour, at half voice. */
+.goal-card.is-bought { border-style: dashed; }
+.goal-card.is-bought .goal-emoji { filter: saturate(0.55); }
+
+.meter-tall { height: 12px; margin: 4px 0 2px; }
+
+.pot-pct {
+  font-family: var(--font-mono);
+  font-size: 22px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+  color: var(--goal-color, var(--text-primary));
+}
+
+/* Money out reads as money out without needing a second colour: the minus
+   sign carries it, and the row goes quiet. */
+.entry-row .e-amt.is-out { color: var(--text-muted); }
+
 .archive-row {
   display: flex;
   align-items: center;
@@ -1232,7 +1271,7 @@ input[type="range"]::-moz-range-thumb {
 }
 .entry-row:last-child { border-bottom: none; }
 .entry-row .e-date { color: var(--text-secondary); font-family: var(--font-mono); width: 92px; flex: none; font-variant-numeric: tabular-nums; }
-.entry-row .e-amt { font-family: var(--font-mono); font-weight: 500; width: 84px; flex: none; font-variant-numeric: tabular-nums; }
+.entry-row .e-amt { font-family: var(--font-mono); font-weight: 500; width: 96px; flex: none; font-variant-numeric: tabular-nums; }
 .entry-row .e-note { color: var(--text-secondary); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .entry-row .e-del { opacity: 0; transition: opacity 160ms var(--ease); }
 .entry-row:hover .e-del { opacity: 1; }

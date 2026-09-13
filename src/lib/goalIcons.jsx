@@ -5,6 +5,8 @@ import {
   Target, BookOpen, Laptop, MessageCircle, Guitar, Footprints, Flower2, PenLine,
   Palette, FlaskConical, Dumbbell, ChefHat, Camera, Sprout, Brain, Moon, Piano,
   TrendingUp, FolderOpen, Flame, Keyboard, Car,
+  PiggyBank, House, Plane, Gift, Gem, Bike, Smartphone, Sofa, GraduationCap,
+  Headphones, Gamepad2, Ticket, Dog, Baby, Tent, Watch,
 } from 'lucide-react'
 
 /* The curated set offered in the goal editor's icon picker. */
@@ -12,6 +14,42 @@ export const ICON_CHOICES = [
   'target', 'book', 'laptop', 'message', 'guitar', 'run', 'meditate', 'write', 'art', 'science',
   'strength', 'cook', 'camera', 'sprout', 'brain', 'sleep', 'piano', 'progress', 'organize', 'flame',
 ]
+
+/* ---------------------------------------------------------------- savings */
+
+/* Savings pots get their own picker: what you are saving up for is a thing,
+   not a practice, so the useful icons are objects and trips rather than the
+   verbs above. Ids share one registry with the goal icons, so `GoalIcon`
+   renders either set and nothing has to know which picker a value came from. */
+export const SAVINGS_ICON_CHOICES = [
+  'piggy-bank', 'car', 'laptop', 'house', 'plane', 'gift', 'gem', 'bike',
+  'phone', 'sofa', 'study', 'camera', 'guitar', 'headphones', 'console',
+  'ticket', 'dog', 'baby', 'tent', 'watch',
+]
+
+const SAVINGS_ICONS = {
+  'piggy-bank': PiggyBank,
+  house: House,
+  plane: Plane,
+  gift: Gift,
+  gem: Gem,
+  bike: Bike,
+  phone: Smartphone,
+  sofa: Sofa,
+  study: GraduationCap,
+  headphones: Headphones,
+  console: Gamepad2,
+  ticket: Ticket,
+  dog: Dog,
+  baby: Baby,
+  tent: Tent,
+  watch: Watch,
+}
+
+/** Normalise a stored savings icon, falling back to the piggy bank. */
+export function normaliseSavingsIconId(value) {
+  return GOAL_ICONS[value] ? value : SAVINGS_ICON_CHOICES[0]
+}
 
 /* A couple of extra ids outside the picker, kept only so older sample/backup
    data (keyboard, car) still resolves to something sensible. */
@@ -38,6 +76,7 @@ export const GOAL_ICONS = {
   flame: Flame,
   keyboard: Keyboard,
   car: Car,
+  ...SAVINGS_ICONS,
 }
 
 /* Goals saved before icons replaced emoji still carry a literal emoji

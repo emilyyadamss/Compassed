@@ -17,7 +17,9 @@ alone via row level security. Settings → **Export backup** writes a JSON file
 you can re-import later, and **Sign out** is in Settings → Account.
 
 See [`supabase/schema.sql`](supabase/schema.sql) for the tables/policies to run
-once in your Supabase project's SQL editor before first use.
+in your Supabase project's SQL editor before first use. It's safe to re-run, and
+re-running it is how an existing project picks up tables added later — the
+savings pots below, for instance.
 
 First run is empty. Settings → **Load sample data** fills it with five plausible
 goals, six months of history, and a few starter steps if you'd rather see the
@@ -141,6 +143,30 @@ lopsided when it's the intended shape.
 Anything archived can be moved into revisit later, and anything in revisit can go
 back to being fully active.
 
+## Savings: things you're saving up for
+
+Goals are practices. **Savings** is the other half: the things you're saving up
+*for* — a car, a laptop, a trip — each with what it costs and a bar showing how
+close you are to buying it.
+
+- Add an item with its price. A rough price is fine, and 0 is allowed if you
+  don't know it yet — the pot still totals what you put in, it just has nothing
+  to fill.
+- **Add money** whenever you put something aside. Every payment is a dated
+  record with an optional note, listed on the item's page.
+- Needed some of it back? Switch the dialog to **Take out** — a withdrawal is
+  just a negative payment, so the balance is always the plain sum of a list you
+  can see and correct. Nothing is stored as a total that can drift.
+- Once a week of history exists, the item estimates how far off it is at the
+  pace you're actually saving — a fortnight of putting nothing in slows the
+  estimate down, which is the part worth knowing.
+- When it's fully funded, mark it **Bought**. It keeps every payment, moves to
+  the bottom of the page, and stops counting towards what you still need.
+
+Savings sit outside the nudge entirely. A pot measures a balance against a
+price, not a practice going quiet, so it's never scored, never ranked, and never
+the thing Compassed points you at. Set the currency in Settings → Appearance.
+
 ## Categories
 
 Goals can carry a category — free text, with `Learning` / `Health` / `Creative` /
@@ -173,6 +199,8 @@ Goals with no category collect under *Uncategorised*, always sorted last.
 |---|---|
 | `N` | New goal |
 | `L` | Log progress |
+| `A` | Activity |
+| `S` | Savings |
 | `↵` | Add the step you're typing, from the Next steps field |
 | `G` | Back to Today |
 | `,` | Settings |
@@ -186,6 +214,7 @@ src/
   lib/
     date.js            local-date helpers, week/month bucketing
     model.js            goal, entry & task shapes, lifecycle, unit presets, colour slots
+    savings.js          savings pot & deposit shapes, money formatting, pot stats
     stats.js            streaks, rolling totals, per-period series, balance, task totals
     nudge.js            the scoring engine
     chart.js            axis ticks, mark paths, resize hook
@@ -194,10 +223,10 @@ src/
     storage.js          JSON backup export/import
     sample.js           the demo dataset
   components/    Heatmap, ProgressChart, BalanceBars, Sparkline, TaskList, AuthScreen, cards, modals
-  views/         Dashboard, GoalDetail, ArchiveView, SettingsView
+  views/         Dashboard, GoalDetail, ArchiveView, SavingsView, SavingsDetail, SettingsView
 
 supabase/
-  schema.sql     tables + row level security policies — run once per project
+  schema.sql     tables + row level security policies — idempotent, re-run to update
 ```
 
 Charts are hand-drawn SVG — no charting dependency. The eight goal colours are a

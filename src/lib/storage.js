@@ -4,6 +4,7 @@
    (via db.replaceAll, so a restore fully replaces the account's data). */
 
 import { DEFAULT_SETTINGS, migrateGoal, migrateTask } from './model.js'
+import { migratePot, migrateDeposit } from './savings.js'
 
 export function exportJSON(state) {
   return JSON.stringify(
@@ -23,6 +24,9 @@ export function parseImport(text) {
     entries: parsed.entries,
     // Backups written before task lists existed simply have none.
     tasks: Array.isArray(parsed.tasks) ? parsed.tasks.map(migrateTask) : [],
+    // Same for savings pots, which arrived later still.
+    pots: Array.isArray(parsed.pots) ? parsed.pots.map(migratePot) : [],
+    deposits: Array.isArray(parsed.deposits) ? parsed.deposits.map(migrateDeposit) : [],
     settings: { ...DEFAULT_SETTINGS, ...(parsed.settings || {}) },
   }
 }

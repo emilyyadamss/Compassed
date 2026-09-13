@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { colorVar } from '../lib/model.js'
+import { CURRENCIES, DEFAULT_CURRENCY } from '../lib/savings.js'
 import { exportJSON, parseImport, download } from '../lib/storage.js'
 import { GoalIcon } from '../lib/goalIcons.jsx'
 
@@ -74,8 +75,9 @@ export default function SettingsView({
           </div>
           {confirmDelete && (
             <p className="hint" style={{ marginTop: 12, color: 'var(--error-text)' }}>
-              This permanently deletes your account and all {state.goals.length} goals and{' '}
-              {state.entries.length} entries. There's no undo! Export a backup first if you want one.
+              This permanently deletes your account, all {state.goals.length} goals,{' '}
+              {state.entries.length} entries and {(state.pots || []).length} savings goals.
+              There's no undo! Export a backup first if you want one.
             </p>
           )}
         </div>
@@ -175,6 +177,20 @@ export default function SettingsView({
             </div>
           </Row>
 
+          <Row title="Currency" sub="What savings goals are counted in">
+            <select
+              className="input"
+              style={{ width: 'auto' }}
+              aria-label="Currency"
+              value={settings.currency || DEFAULT_CURRENCY}
+              onChange={(e) => setSettings({ currency: e.target.value })}
+            >
+              {CURRENCIES.map((c) => (
+                <option key={c.code} value={c.code}>{c.label}</option>
+              ))}
+            </select>
+          </Row>
+
           <Row title="Show data tables" sub="A readable table under every chart, also what screen readers get">
             <button
               className="toggle"
@@ -190,7 +206,8 @@ export default function SettingsView({
             <div>
               <div className="card-title">Your data</div>
               <div className="card-sub">
-                {state.goals.length} goals · {state.entries.length} entries · synced to your account
+                {state.goals.length} goals · {state.entries.length} entries ·{' '}
+                {(state.pots || []).length} savings goals · synced to your account
               </div>
             </div>
           </div>

@@ -1,11 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown, PiggyBank } from 'lucide-react'
 import Dashboard from './views/Dashboard.jsx'
 import GoalDetail from './views/GoalDetail.jsx'
 import SettingsView from './views/SettingsView.jsx'
 import ArchiveView from './views/ArchiveView.jsx'
 import ActivityView from './views/ActivityView.jsx'
+import SavingsView from './views/SavingsView.jsx'
+import SavingsDetail from './views/SavingsDetail.jsx'
 import GoalEditor from './components/GoalEditor.jsx'
+import SavingsEditor from './components/SavingsEditor.jsx'
+import DepositModal from './components/DepositModal.jsx'
 import MobileNav from './components/MobileNav.jsx'
 import LogModal from './components/LogModal.jsx'
 import CompleteModal from './components/CompleteModal.jsx'
@@ -15,6 +19,7 @@ import Loader from './components/Loader.jsx'
 import { supabase } from './lib/supabaseClient.js'
 import {
   fetchState, putGoal, removeGoal, putEntry, removeEntry, putTask, removeTask,
+  putPot, removePot, putDeposit, removeDeposit,
   putSettings, replaceData, replaceAll,
 } from './lib/db.js'
 import { buildSample } from './lib/sample.js'
@@ -23,6 +28,10 @@ import {
   DEFAULT_SETTINGS, groupByCategory, categoryLabel, STATUS, isActive, isRevisit, isDone,
   inPlay, statusOf, withStatus, revisitLabel, withUnit,
 } from './lib/model.js'
+import {
+  DEFAULT_CURRENCY, SAVINGS_STATUS, formatMoney, indexDeposits, isSaving,
+  newDeposit, newPot, potStats, withPotStatus,
+} from './lib/savings.js'
 import { goalStats } from './lib/stats.js'
 import { indexEntries } from './lib/stats.js'
 import { scoreGoals, pickNudge } from './lib/nudge.js'
@@ -34,7 +43,9 @@ import homeIconLight from './assets/home-light.png'
 import settingsIcon from './assets/settings.png'
 import settingsIconLight from './assets/settings-light.png'
 
-const EMPTY_STATE = { goals: [], entries: [], tasks: [], settings: { ...DEFAULT_SETTINGS } }
+const EMPTY_STATE = {
+  goals: [], entries: [], tasks: [], pots: [], deposits: [], settings: { ...DEFAULT_SETTINGS },
+}
 
 export default function App() {
   // undefined = auth not checked yet, null = signed out, object = signed in.
@@ -46,6 +57,8 @@ export default function App() {
   const [view, setView] = useState({ name: 'dashboard' })
   const [editing, setEditing] = useState(null)     // { goal, isNew }
   const [logging, setLogging] = useState(null)     // { goalId, date }
+  const [editingPot, setEditingPot] = useState(null) // { pot, isNew }
+  const [depositing, setDepositing] = useState(null) // { potId }
   const [finishing, setFinishing] = useState(null) // { goal, intent }
   const [cycle, setCycle] = useState(0)
   const [toasts, setToasts] = useState([])
@@ -63,8 +76,12 @@ export default function App() {
   }, [collapsedCategories])
 
   const { goals, entries, settings } = state
-  // Older saves (and backups written before task lists existed) simply have none.
+  // Older saves (and backups written before task lists or savings existed)
+  // simply have none.
   const tasks = state.tasks || []
+  const pots = state.pots || []
+  const deposits = state.deposits || []
+  const currency = settings.currency || DEFAULT_CURRENCY
   const userId = session?.user?.id ?? null
 
   /* ------------------------------------------------------------------ auth */
@@ -103,6 +120,9 @@ export default function App() {
   /* ------------------------------------------------------------- derived */
   const byGoal = useMemo(() => indexEntries(entries), [entries])
   const byTask = useMemo(() => indexTasks(tasks), [tasks])
+  const byPot = useMemo(() => indexDeposits(deposits), [deposits])
+  // Only pots still being filled can take money; the bought ones are history.
+  const fillable = useMemo(() => pots.filter(isSaving), [pots])
   const activeGoals = useMemo(() => goals.filter(isActive), [goals])
   const revisitGoals = useMemo(() => goals.filter(isRevisit), [goals])
   const archived = useMemo(() => goals.filter(isDone), [goals])
@@ -324,10 +344,90 @@ export default function App() {
     setLogging({ goalId: target, date })
   }, [loggable, openNewGoal])
 
+  /* --------------------------------------------------------------- savings */
+
+  const savePot = useCallback((pot) => {
+    setState((s) => {
+      const list = s.pots || []
+      const exists = list.some((p) => p.id === pot.id)
+      return { ...s, pots: exists ? list.map((p) => (p.id === pot.id ? pot : p)) : [...list, pot] }
+    })
+    putPot(userId, pot).catch(syncFail('Could not save that savings goal'))
+    setEditingPot(null)
+    toast(`Saved ${pot.name}`)
+  }, [userId, syncFail, toast])
+
+  const deletePot = useCallback((id) => {
+    setState((s) => ({
+      ...s,
+      pots: (s.pots || []).filter((p) => p.id !== id),
+      deposits: (s.deposits || []).filter((d) => d.potId !== id),
+    }))
+    // The savings_pots row cascades to its deposits in the database.
+    removePot(id).catch(syncFail('Could not delete that savings goal'))
+    setEditingPot(null)
+    setView({ name: 'savings' })
+    toast('Savings goal deleted')
+  }, [syncFail, toast])
+
+  /* Bought, or back on the list. The money that went in stays either way —
+     what changes is only whether the pot still counts towards what you need. */
+  const setPotStatus = useCallback((id, status) => {
+    let name = ''
+    let updated = null
+    setState((s) => ({
+      ...s,
+      pots: (s.pots || []).map((p) => {
+        if (p.id !== id) return p
+        name = p.name
+        updated = withPotStatus(p, status)
+        return updated
+      }),
+    }))
+    if (updated) putPot(userId, updated).catch(syncFail('Could not save that change'))
+    toast(status === SAVINGS_STATUS.BOUGHT ? `${name} — bought!` : `${name} is back on the list`)
+  }, [userId, syncFail, toast])
+
+  const addDeposit = useCallback(({ potId, date, amount, note }) => {
+    const deposit = newDeposit(potId, date, amount, note)
+    setState((s) => ({ ...s, deposits: [...(s.deposits || []), deposit] }))
+    putDeposit(userId, deposit).catch(syncFail('Could not save that payment'))
+    setDepositing(null)
+
+    const pot = pots.find((p) => p.id === potId)
+    if (!pot) return
+    const before = potStats(pot, byPot.get(potId) || [])
+    const after = potStats(pot, [...(byPot.get(potId) || []), deposit])
+    const money = formatMoney(Math.abs(amount), currency)
+    toast(amount < 0
+      ? `Took ${money} back out of ${pot.name}`
+      : after.funded && !before.funded
+        ? `${pot.name} is fully saved for!`
+        : after.target > 0
+          ? `${money} into ${pot.name} · ${formatMoney(after.remaining, currency)} to go`
+          : `${money} into ${pot.name}`)
+  }, [pots, byPot, currency, userId, syncFail, toast])
+
+  const deleteDeposit = useCallback((id) => {
+    setState((s) => ({ ...s, deposits: (s.deposits || []).filter((d) => d.id !== id) }))
+    removeDeposit(id).catch(syncFail('Could not remove that payment'))
+    toast('Payment removed')
+  }, [syncFail, toast])
+
+  const openNewPot = useCallback(() => {
+    setEditingPot({ pot: newPot(pots.length), isNew: true })
+  }, [pots.length])
+
+  const openDeposit = useCallback((potId) => {
+    if (fillable.length === 0) { openNewPot(); return }
+    const target = potId && fillable.some((p) => p.id === potId) ? potId : fillable[0].id
+    setDepositing({ potId: target })
+  }, [fillable, openNewPot])
+
   /* ------------------------------------------------------------- shortcuts */
   useEffect(() => {
     const onKey = (e) => {
-      if (editing || logging || finishing) return
+      if (editing || logging || finishing || editingPot || depositing) return
       const t = e.target
       if (t instanceof HTMLElement && /input|textarea|select/i.test(t.tagName)) return
       if (e.metaKey || e.ctrlKey || e.altKey) return
@@ -335,13 +435,15 @@ export default function App() {
       if (e.key === 'l') { e.preventDefault(); openLog(view.name === 'goal' ? view.goalId : undefined) }
       if (e.key === 'g') { e.preventDefault(); setView({ name: 'dashboard' }) }
       if (e.key === 'a') { e.preventDefault(); setView({ name: 'activity' }) }
+      if (e.key === 's') { e.preventDefault(); setView({ name: 'savings' }) }
       if (e.key === ',') { e.preventDefault(); setView({ name: 'settings' }) }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [editing, logging, finishing, view, openNewGoal, openLog])
+  }, [editing, logging, finishing, editingPot, depositing, view, openNewGoal, openLog, openDeposit])
 
   const currentGoal = view.name === 'goal' ? goals.find((g) => g.id === view.goalId) : null
+  const currentPot = view.name === 'pot' ? pots.find((p) => p.id === view.potId) : null
 
   if (session === undefined) {
     return <div className="auth-screen"><Loader /></div>
@@ -381,6 +483,7 @@ export default function App() {
         setView={setView}
         archivedCount={archived.length}
         onNewGoal={openNewGoal}
+        onAddMoney={pots.length > 0 ? openDeposit : null}
       />
 
       <aside className="sidebar">
@@ -412,6 +515,18 @@ export default function App() {
           <span aria-hidden="true">☰</span>
           <span className="nav-name">Activity</span>
           <span className="nav-meta">A</span>
+        </button>
+
+        <button
+          className="nav-item"
+          aria-current={view.name === 'savings'}
+          onClick={() => setView({ name: 'savings' })}
+        >
+          <span className="nav-icon" aria-hidden="true" style={{ display: 'flex' }}>
+            <PiggyBank size={16} />
+          </span>
+          <span className="nav-name">Savings</span>
+          <span className="nav-meta">S</span>
         </button>
 
         {navGroups.map(([category, items]) => {
@@ -468,6 +583,30 @@ export default function App() {
           </>
         )}
 
+        {fillable.length > 0 && (
+          <>
+            <div className="nav-label">Saving for</div>
+            {fillable.map((pot) => {
+              const stats = potStats(pot, byPot.get(pot.id) || [])
+              return (
+                <button
+                  key={pot.id}
+                  className="nav-item"
+                  style={{ '--goal-color': colorVar(pot.colorSlot) }}
+                  aria-current={view.name === 'pot' && view.potId === pot.id}
+                  onClick={() => setView({ name: 'pot', potId: pot.id })}
+                >
+                  <span className="dot" />
+                  <span className="nav-name">{pot.name}</span>
+                  <span className="nav-meta">
+                    {stats.pct == null ? '—' : `${Math.min(100, Math.round(stats.pct))}%`}
+                  </span>
+                </button>
+              )
+            })}
+          </>
+        )}
+
         {archived.length > 0 && (
           <>
             <div className="nav-label">Archive</div>
@@ -504,7 +643,7 @@ export default function App() {
         </div>
       </aside>
 
-      <main className="main" key={view.name + (view.goalId || '')}>
+      <main className="main" key={view.name + (view.goalId || view.potId || '')}>
         {view.name === 'dashboard' && (
           <>
             {goals.length > 0 && (
@@ -593,6 +732,57 @@ export default function App() {
           </>
         )}
 
+        {view.name === 'savings' && (
+          <>
+            {pots.length > 0 && (
+              <div className="page-head">
+                <div>
+                  <h1 className="page-title">Savings</h1>
+                  <p className="page-sub">
+                    What you&rsquo;re saving up for, and how close each one is. Nothing here is
+                    nudged &mdash; it fills up when you put money in, and waits when you don&rsquo;t.
+                  </p>
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button className="btn" onClick={openNewPot}>New savings goal</button>
+                  {fillable.length > 0 && (
+                    <button className="btn btn-primary" onClick={() => openDeposit()}>Add money</button>
+                  )}
+                </div>
+              </div>
+            )}
+            <SavingsView
+              pots={pots}
+              byPot={byPot}
+              currency={currency}
+              onOpen={(id) => setView({ name: 'pot', potId: id })}
+              onDeposit={openDeposit}
+              onNewPot={openNewPot}
+              onBought={(pot) => setPotStatus(pot.id, SAVINGS_STATUS.BOUGHT)}
+            />
+          </>
+        )}
+
+        {view.name === 'pot' && currentPot && (
+          <SavingsDetail
+            pot={currentPot}
+            deposits={byPot.get(currentPot.id) || []}
+            currency={currency}
+            onEdit={(pot) => setEditingPot({ pot, isNew: false })}
+            onDeposit={openDeposit}
+            onDeleteDeposit={deleteDeposit}
+            onSetStatus={setPotStatus}
+            onBack={() => setView({ name: 'savings' })}
+          />
+        )}
+
+        {view.name === 'pot' && !currentPot && (
+          <div className="empty">
+            <h3>That savings goal is gone</h3>
+            <button className="btn" onClick={() => setView({ name: 'savings' })}>Back to savings</button>
+          </div>
+        )}
+
         {view.name === 'archive' && (
           <>
             <div className="page-head">
@@ -646,9 +836,13 @@ export default function App() {
             }}
             onLoadSample={loadSample}
             onClearAll={() => {
-              const next = { goals: [], entries: [], tasks: [], settings: { ...DEFAULT_SETTINGS, theme: settings.theme } }
+              const next = {
+                goals: [], entries: [], tasks: [], pots: [], deposits: [],
+                settings: { ...DEFAULT_SETTINGS, theme: settings.theme, currency },
+              }
               setState(next)
-              replaceData(userId, { goals: [], entries: [], tasks: [] }).catch(syncFail('Could not clear cloud data'))
+              replaceData(userId, { goals: [], entries: [], tasks: [], pots: [], deposits: [] })
+                .catch(syncFail('Could not clear cloud data'))
               putSettings(userId, next.settings).catch(syncFail('Could not clear cloud data'))
               setView({ name: 'dashboard' })
               toast('All data cleared')
@@ -665,6 +859,29 @@ export default function App() {
           onSave={saveGoal}
           onDelete={deleteGoal}
           onClose={() => setEditing(null)}
+        />
+      )}
+
+      {editingPot && (
+        <SavingsEditor
+          pot={editingPot.pot}
+          isNew={editingPot.isNew}
+          currency={currency}
+          saved={potStats(editingPot.pot, byPot.get(editingPot.pot.id) || []).saved}
+          onSave={savePot}
+          onDelete={deletePot}
+          onClose={() => setEditingPot(null)}
+        />
+      )}
+
+      {depositing && (
+        <DepositModal
+          pots={fillable}
+          byPot={byPot}
+          potId={depositing.potId}
+          currency={currency}
+          onSave={addDeposit}
+          onClose={() => setDepositing(null)}
         />
       )}
 

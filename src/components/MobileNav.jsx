@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
-import { Plus, Home, ListChecks, Archive, Settings } from 'lucide-react'
+import { Plus, Home, ListChecks, Archive, Settings, PiggyBank, Coins } from 'lucide-react'
 
 const menuVariants = {
   hidden: { transition: { staggerChildren: 0.035, staggerDirection: -1 } },
@@ -19,7 +19,7 @@ const itemVariants = {
   },
 }
 
-export default function MobileNav({ view, setView, archivedCount, onNewGoal }) {
+export default function MobileNav({ view, setView, archivedCount, onNewGoal, onAddMoney }) {
   const [open, setOpen] = useState(false)
   const close = () => setOpen(false)
 
@@ -29,6 +29,10 @@ export default function MobileNav({ view, setView, archivedCount, onNewGoal }) {
     { key: 'dashboard', label: 'Today', icon: Home },
     { key: 'new-goal', label: 'New goal', icon: Plus, onSelect: onNewGoal },
     { key: 'activity', label: 'Activity', icon: ListChecks },
+    ...(onAddMoney
+      ? [{ key: 'add-money', label: 'Add money', icon: Coins, onSelect: () => onAddMoney() }]
+      : []),
+    { key: 'savings', label: 'Savings', icon: PiggyBank },
     ...(archivedCount > 0
       ? [{ key: 'archive', label: 'Completed', icon: Archive, meta: archivedCount }]
       : []),
