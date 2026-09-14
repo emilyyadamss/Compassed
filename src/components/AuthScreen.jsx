@@ -116,16 +116,6 @@ export default function AuthScreen({ initialMode = 'signin', onBack }) {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
-              {mode === 'signin' && (
-                <button
-                  type="button"
-                  className="btn btn-ghost btn-sm"
-                  style={{ alignSelf: 'flex-end' }}
-                  onClick={() => { setMode('forgot'); setError(null); setMessage(null) }}
-                >
-                  Forgot password?
-                </button>
-              )}
             </div>
           )}
 
@@ -138,14 +128,24 @@ export default function AuthScreen({ initialMode = 'signin', onBack }) {
         </form>
 
         {mode !== 'forgot' && (
-          <button
-            className="btn btn-ghost btn-sm"
-            style={{ marginTop: 10, width: '100%' }}
-            disabled={busy || !email}
-            onClick={sendMagicLink}
-          >
-            Email me a sign-in link instead
-          </button>
+          <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+            <button
+              className="btn btn-ghost btn-sm"
+              style={{ flex: 1 }}
+              disabled={busy || !email}
+              onClick={sendMagicLink}
+            >
+              Email me a sign-in link instead
+            </button>
+            {mode === 'signin' && (
+              <button
+                className="btn btn-ghost btn-sm"
+                onClick={() => { setMode('forgot'); setError(null); setMessage(null) }}
+              >
+                Forgot password?
+              </button>
+            )}
+          </div>
         )}
 
         <button
