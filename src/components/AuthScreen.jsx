@@ -6,6 +6,7 @@ import logoLightUrl from '../assets/logo-light.png'
 const MODES = {
   signin: { title: 'Sign in', cta: 'Sign in', switchTo: 'signup', switchLabel: "Don't have an account? Sign up" },
   signup: { title: 'Create an account', cta: 'Sign up', switchTo: 'signin', switchLabel: 'Already have an account? Sign in' },
+  forgot: { title: 'Reset your password', cta: 'Send reset link', switchTo: 'signin', switchLabel: 'Remembered it? Sign in' },
 }
 
 export default function AuthScreen({ initialMode = 'signin', onBack }) {
@@ -30,6 +31,12 @@ export default function AuthScreen({ initialMode = 'signin', onBack }) {
         if (err) throw err
         setMessage('Account created. Check your email to confirm it, then sign in.')
         setMode('signin')
+      } else if (mode === 'forgot') {
+        const { error: err } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: window.location.origin,
+        })
+        if (err) throw err
+        setMessage('If an account exists for that email, a reset link is on its way.')
       } else {
         const { error: err } = await supabase.auth.signInWithPassword({ email, password })
         if (err) throw err
@@ -96,19 +103,31 @@ export default function AuthScreen({ initialMode = 'signin', onBack }) {
             />
           </div>
 
-          <div className="field">
-            <label htmlFor="auth-password">Password</label>
-            <input
-              id="auth-password"
-              className="input"
-              type="password"
-              autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
-              required
-              minLength={6}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </div>
+          {mode !== 'forgot' && (
+            <div className="field">
+              <label htmlFor="auth-password">Password</label>
+              <input
+                id="auth-password"
+                className="input"
+                type="password"
+                autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
+                required
+                minLength={6}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+              {mode === 'signin' && (
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  style={{ alignSelf: 'flex-end' }}
+                  onClick={() => { setMode('forgot'); setError(null); setMessage(null) }}
+                >
+                  Forgot password?
+                </button>
+              )}
+            </div>
+          )}
 
           {error && <p className="hint" style={{ color: 'var(--error-text)' }}>{error}</p>}
           {message && <p className="hint">{message}</p>}
@@ -118,14 +137,16 @@ export default function AuthScreen({ initialMode = 'signin', onBack }) {
           </button>
         </form>
 
-        <button
-          className="btn btn-ghost btn-sm"
-          style={{ marginTop: 10, width: '100%' }}
-          disabled={busy || !email}
-          onClick={sendMagicLink}
-        >
-          Email me a sign-in link instead
-        </button>
+        {mode !== 'forgot' && (
+          <button
+            className="btn btn-ghost btn-sm"
+            style={{ marginTop: 10, width: '100%' }}
+            disabled={busy || !email}
+            onClick={sendMagicLink}
+          >
+            Email me a sign-in link instead
+          </button>
+        )}
 
         <button
           className="btn btn-ghost btn-sm"

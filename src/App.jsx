@@ -15,8 +15,9 @@ import LogModal from './components/LogModal.jsx'
 import CompleteModal from './components/CompleteModal.jsx'
 import AuthScreen from './components/AuthScreen.jsx'
 import LandingScreen from './components/LandingScreen.jsx'
+import ResetPasswordScreen from './components/ResetPasswordScreen.jsx'
 import Loader from './components/Loader.jsx'
-import { supabase } from './lib/supabaseClient.js'
+import { supabase, isRecoveryRedirect } from './lib/supabaseClient.js'
 import {
   fetchState, putGoal, removeGoal, putEntry, removeEntry, putTask, removeTask,
   putPot, removePot, putDeposit, removeDeposit,
@@ -65,6 +66,8 @@ export default function App() {
   const [session, setSession] = useState(undefined)
   // Pre-auth screen: 'landing' shows the marketing page, 'signin'/'signup' show the auth form.
   const [authView, setAuthView] = useState('landing')
+  // True after following a password reset link, until a new password is set.
+  const [recovering, setRecovering] = useState(isRecoveryRedirect)
   const [state, setState] = useState(emptyState)
   const [dataLoading, setDataLoading] = useState(false)
   const [view, setView] = useState({ name: 'dashboard' })
@@ -101,7 +104,11 @@ export default function App() {
   /* ------------------------------------------------------------------ auth */
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session))
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, sess) => setSession(sess))
+    const { data: sub } = supabase.auth.onAuthStateChange((event, sess) => {
+      setSession(sess)
+      if (event === 'PASSWORD_RECOVERY') setRecovering(true)
+      if (event === 'SIGNED_OUT') setRecovering(false)
+    })
     return () => sub.subscription.unsubscribe()
   }, [])
 
@@ -487,6 +494,13 @@ export default function App() {
       <AuthScreen
         initialMode={authView}
         onBack={() => setAuthView('landing')}
+      />
+    )
+  }
+  if (recovering) {
+    return (
+      <ResetPasswordScreen
+        onDone={() => { setRecovering(false); toast('Password updated') }}
       />
     )
   }

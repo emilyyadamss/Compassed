@@ -9,4 +9,9 @@ if (!url || !anonKey) {
   )
 }
 
+// Read before the client starts: it strips the auth params from the URL once it
+// has swapped them for a session, and its PASSWORD_RECOVERY event can fire
+// before React has subscribed.
+export const isRecoveryRedirect = /[#&?]type=recovery\b/.test(window.location.hash + window.location.search)
+
 export const supabase = createClient(url, anonKey)
