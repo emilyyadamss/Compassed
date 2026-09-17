@@ -302,6 +302,10 @@ a { color: var(--accent); }
   padding: 8px 10px;
   border-radius: 0;
   color: var(--text-secondary);
+  /* nav items are <a href> so middle-click and cmd-click work; this drops the
+     underline the UA gives them. `a { color }` loses to .nav-item on
+     specificity, so the colour above still wins. */
+  text-decoration: none;
   font-size: 14px;
   text-align: left;
   transition: background-color 160ms var(--ease), color 160ms var(--ease);

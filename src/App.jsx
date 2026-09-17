@@ -18,6 +18,8 @@ import LandingScreen from './components/LandingScreen.jsx'
 import ResetPasswordScreen from './components/ResetPasswordScreen.jsx'
 import Loader from './components/Loader.jsx'
 import { supabase, isRecoveryRedirect } from './lib/supabaseClient.js'
+import { parsePath, useRoutedView } from './lib/useRoutedView.js'
+import NavLink from './components/NavLink.jsx'
 import {
   fetchState, putGoal, removeGoal, putEntry, removeEntry, putTask, removeTask,
   putPot, removePot, putDeposit, removeDeposit,
@@ -60,13 +62,17 @@ const emptyState = () => ({
 export default function App() {
   // undefined = auth not checked yet, null = signed out, object = signed in.
   const [session, setSession] = useState(undefined)
-  // Pre-auth screen: 'landing' shows the marketing page, 'signin'/'signup' show the auth form.
-  const [authView, setAuthView] = useState('landing')
   // True after following a password reset link, until a new password is set.
+  // Deliberately still a flag rather than a route: the reset email redirects to
+  // the site root, so making it a path would mean changing redirectTo *and*
+  // Supabase's allowed redirect URLs, where a mismatch fails silently.
   const [recovering, setRecovering] = useState(isRecoveryRedirect)
   const [state, setState] = useState(emptyState)
   const [dataLoading, setDataLoading] = useState(false)
-  const [view, setView] = useState({ name: 'dashboard' })
+  /* The URL is the source of truth for where you are, pre-auth screens
+     included. `setView` keeps its old name and shape so every call site below
+     reads the same as it did before the address bar was involved. */
+  const [view, setView] = useRoutedView()
   const [editing, setEditing] = useState(null)     // { goal, isNew }
   const [logging, setLogging] = useState(null)     // { goalId, date }
   const [editingPot, setEditingPot] = useState(null) // { pot, isNew }
@@ -107,6 +113,22 @@ export default function App() {
     })
     return () => sub.subscription.unsubscribe()
   }, [])
+
+  /* A session arriving while the auth screen is up means sign-in just
+     succeeded, so send them wherever they were headed before the detour.
+     Replace rather than push: Back should not return to a sign-in form that no
+     longer applies, and replaceState is idempotent so StrictMode's double
+     invocation in development is harmless. */
+  useEffect(() => {
+    if (!userId) return
+    if (view.name !== 'signin' && view.name !== 'signup') return
+    const from = window.history.state?.from
+    const back = from ? parsePath(from) : { name: 'dashboard' }
+    const target = back.name === 'signin' || back.name === 'signup' || back.name === 'notfound'
+      ? { name: 'dashboard' }
+      : back
+    setView(target, { replace: true })
+  }, [userId, view.name, setView])
 
   /* ---------------------------------------------------------------- toasts */
   const toast = useCallback((message) => {
@@ -192,7 +214,8 @@ export default function App() {
     // The goals row cascades to its entries and tasks in the database.
     removeGoal(id).catch(syncFail('Could not delete that goal'))
     setEditing(null)
-    setView({ name: 'dashboard' })
+    // replace: Back must not return to the goal that was just deleted.
+    setView({ name: 'dashboard' }, { replace: true })
     toast('Goal deleted')
   }, [syncFail, toast])
 
@@ -351,7 +374,8 @@ export default function App() {
     const { goals: g, entries: e, tasks: t } = buildSample()
     setState((s) => ({ ...s, goals: g, entries: e, tasks: t }))
     replaceData(userId, { goals: g, entries: e, tasks: t }).catch(syncFail('Could not save sample data'))
-    setView({ name: 'dashboard' })
+    // replace: the goals behind the previous entry no longer exist.
+    setView({ name: 'dashboard' }, { replace: true })
     toast('Sample data loaded')
   }, [userId, syncFail, toast])
 
@@ -394,7 +418,8 @@ export default function App() {
     // The savings_pots row cascades to its deposits in the database.
     removePot(id).catch(syncFail('Could not delete that savings goal'))
     setEditingPot(null)
-    setView({ name: 'savings' })
+    // replace: Back must not return to the pot that was just deleted.
+    setView({ name: 'savings' }, { replace: true })
     toast('Savings goal deleted')
   }, [syncFail, toast])
 
@@ -477,18 +502,23 @@ export default function App() {
     return <div className="auth-screen"><Loader /></div>
   }
   if (!session) {
-    if (authView === 'landing') {
+    /* Signed out, the path picks the screen. Anything that isn't /signin or
+       /signup shows the landing page *without* rewriting the URL — that is what
+       makes deep links survive sign-in: land on /goal/abc signed out, sign in,
+       and the route is still /goal/abc waiting to be rendered. `from` remembers
+       where to return to once there is a session. */
+    if (view.name === 'signin' || view.name === 'signup') {
       return (
-        <LandingScreen
-          onSignUp={() => setAuthView('signup')}
-          onSignIn={() => setAuthView('signin')}
+        <AuthScreen
+          initialMode={view.name}
+          onBack={() => setView({ name: 'dashboard' })}
         />
       )
     }
     return (
-      <AuthScreen
-        initialMode={authView}
-        onBack={() => setAuthView('landing')}
+      <LandingScreen
+        onSignUp={() => setView({ name: 'signup' }, { state: { from: window.location.pathname } })}
+        onSignIn={() => setView({ name: 'signin' }, { state: { from: window.location.pathname } })}
       />
     )
   }
@@ -530,38 +560,41 @@ export default function App() {
           Compassed
         </div>
 
-        <button
+        <NavLink
+          to={{ name: 'dashboard' }}
+          navigate={setView}
           className="nav-item"
           aria-current={view.name === 'dashboard'}
-          onClick={() => setView({ name: 'dashboard' })}
         >
           <span className="nav-icon" aria-hidden="true">
             <Home size={16} />
           </span>
           <span className="nav-name">Today</span>
-        </button>
+        </NavLink>
 
-        <button
+        <NavLink
+          to={{ name: 'activity' }}
+          navigate={setView}
           className="nav-item"
           aria-current={view.name === 'activity'}
-          onClick={() => setView({ name: 'activity' })}
         >
           <span aria-hidden="true">☰</span>
           <span className="nav-name">Activity</span>
           <span className="nav-meta">A</span>
-        </button>
+        </NavLink>
 
-        <button
+        <NavLink
+          to={{ name: 'savings' }}
+          navigate={setView}
           className="nav-item"
           aria-current={view.name === 'savings'}
-          onClick={() => setView({ name: 'savings' })}
         >
           <span className="nav-icon" aria-hidden="true" style={{ display: 'flex' }}>
             <PiggyBank size={16} />
           </span>
           <span className="nav-name">Savings</span>
           <span className="nav-meta">S</span>
-        </button>
+        </NavLink>
 
         {navGroups.map(([category, items]) => {
           const key = category || '_none'
@@ -580,19 +613,20 @@ export default function App() {
                 </button>
               </div>
               {!collapsed && items.map(({ goal, stats }) => (
-                <button
+                <NavLink
                   key={goal.id}
+                  to={{ name: 'goal', goalId: goal.id }}
+                  navigate={setView}
                   className="nav-item"
                   style={{ '--goal-color': colorVar(goal.colorSlot) }}
                   aria-current={view.name === 'goal' && view.goalId === goal.id}
-                  onClick={() => setView({ name: 'goal', goalId: goal.id })}
                 >
                   <span className="dot" />
                   <span className="nav-name">{goal.name}</span>
                   <span className="nav-meta">
                     {stats.daysSince == null ? '—' : stats.daysSince === 0 ? 'today' : `${stats.daysSince}d`}
                   </span>
-                </button>
+                </NavLink>
               ))}
             </div>
           )
@@ -602,17 +636,18 @@ export default function App() {
           <>
             <div className="nav-label">Revisit</div>
             {rankedRevisit.map(({ goal, revisit }) => (
-              <button
+              <NavLink
                 key={goal.id}
+                to={{ name: 'goal', goalId: goal.id }}
+                navigate={setView}
                 className="nav-item"
                 style={{ '--goal-color': colorVar(goal.colorSlot) }}
                 aria-current={view.name === 'goal' && view.goalId === goal.id}
-                onClick={() => setView({ name: 'goal', goalId: goal.id })}
               >
                 <span className="dot" />
                 <span className="nav-name">{goal.name}</span>
                 <span className="nav-meta">{revisit.due ? 'due' : `${revisit.dueIn}d`}</span>
-              </button>
+              </NavLink>
             ))}
           </>
         )}
@@ -623,19 +658,20 @@ export default function App() {
             {fillable.map((pot) => {
               const stats = potStats(pot, byPot.get(pot.id) || [])
               return (
-                <button
+                <NavLink
                   key={pot.id}
+                  to={{ name: 'pot', potId: pot.id }}
+                  navigate={setView}
                   className="nav-item"
                   style={{ '--goal-color': colorVar(pot.colorSlot) }}
                   aria-current={view.name === 'pot' && view.potId === pot.id}
-                  onClick={() => setView({ name: 'pot', potId: pot.id })}
                 >
                   <span className="dot" />
                   <span className="nav-name">{pot.name}</span>
                   <span className="nav-meta">
                     {stats.pct == null ? '—' : `${Math.min(100, Math.round(stats.pct))}%`}
                   </span>
-                </button>
+                </NavLink>
               )
             })}
           </>
@@ -644,15 +680,16 @@ export default function App() {
         {archived.length > 0 && (
           <>
             <div className="nav-label">Archive</div>
-            <button
+            <NavLink
+              to={{ name: 'archive' }}
+              navigate={setView}
               className="nav-item"
               aria-current={view.name === 'archive'}
-              onClick={() => setView({ name: 'archive' })}
             >
               <span aria-hidden="true">📦</span>
               <span className="nav-name">Completed</span>
               <span className="nav-meta">{archived.length}</span>
-            </button>
+            </NavLink>
           </>
         )}
 
@@ -662,17 +699,18 @@ export default function App() {
             <span className="nav-name">New goal</span>
             <span className="nav-meta">N</span>
           </button>
-          <button
+          <NavLink
+            to={{ name: 'settings' }}
+            navigate={setView}
             className="nav-item"
             aria-current={view.name === 'settings'}
-            onClick={() => setView({ name: 'settings' })}
           >
             <span className="nav-icon" aria-hidden="true">
               <Settings size={16} />
             </span>
             <span className="nav-name">Settings</span>
             <span className="nav-meta">,</span>
-          </button>
+          </NavLink>
         </div>
       </aside>
 
@@ -847,6 +885,17 @@ export default function App() {
           </div>
         )}
 
+        {/* An unrecognised URL. Deliberately not a silent redirect to the
+            dashboard: that would hide a typo and read as the app losing your
+            place. The sidebar stays, so there is always a way out. */}
+        {view.name === 'notfound' && (
+          <div className="empty">
+            <h3>There's nothing at this address</h3>
+            <p>The link may be mistyped, or whatever was here has since been deleted.</p>
+            <button className="btn" onClick={() => setView({ name: 'dashboard' })}>Back to today</button>
+          </div>
+        )}
+
         {view.name === 'settings' && (
           <SettingsView
             settings={settings}
@@ -865,7 +914,7 @@ export default function App() {
               setState(next)
               replaceAll(userId, next).catch(syncFail('Restored locally, but the cloud sync failed'))
               toast('Backup restored')
-              setView({ name: 'dashboard' })
+              setView({ name: 'dashboard' }, { replace: true })
             }}
             onLoadSample={loadSample}
             onClearAll={() => {
@@ -877,7 +926,7 @@ export default function App() {
               replaceData(userId, { goals: [], entries: [], tasks: [], pots: [], deposits: [] })
                 .catch(syncFail('Could not clear cloud data'))
               putSettings(userId, next.settings).catch(syncFail('Could not clear cloud data'))
-              setView({ name: 'dashboard' })
+              setView({ name: 'dashboard' }, { replace: true })
               toast('All data cleared')
             }}
           />
