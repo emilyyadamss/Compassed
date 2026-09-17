@@ -11,12 +11,16 @@
    free of globals is what would make a later swap to react-router mechanical.
 
    One rule matters more than the rest: THIS HOOK NEVER WRITES TO HISTORY ON
-   MOUNT. supabaseClient.js builds its client with detectSessionInUrl, which
-   consumes `#access_token=...&type=recovery` from a password-reset link and
-   strips it with its own history.replaceState. A normalising write from here in
-   the same tick would race that, and the losing case leaves an access token
-   sitting in the URL and in browser history. We read location on mount and
-   write only when the user actually navigates. */
+   MOUNT. It reads location and writes only when the user actually navigates.
+   A URL the user arrived on is theirs: an unknown path stays in the address
+   bar rather than being tidied to '/', and a signed-out deep link survives
+   sign-in because nothing rewrites it in the meantime.
+
+   It also keeps this hook out of the auth handoff. Email links arrive with
+   tokens in the hash, and supabaseClient.js removes them at import time,
+   before React has rendered anything — so by the time this hook first reads
+   location the hash is already gone. Everything to do with that URL belongs
+   there, not here. */
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 

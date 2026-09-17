@@ -9,23 +9,67 @@
  * Supabase is mocked to a signed-out session so nothing touches the network.
  */
 
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { cleanup, render, screen, waitFor } from '@testing-library/react'
+
+const auth = vi.hoisted(() => ({
+  // Swapped per test; the getter below makes App read the current one.
+  ready: Promise.resolve(),
+  getSession: vi.fn(),
+  onAuthStateChange: vi.fn(),
+}))
 
 vi.mock('./lib/supabaseClient.js', () => ({
   supabase: {
     auth: {
-      getSession: () => Promise.resolve({ data: { session: null } }),
-      onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }),
+      getSession: auth.getSession,
+      onAuthStateChange: auth.onAuthStateChange,
     },
   },
   isRecoveryRedirect: false,
+  get authReady() {
+    return auth.ready
+  },
 }))
 
 const { default: App } = await import('./App.jsx')
 
 beforeEach(() => {
   window.history.replaceState(null, '', '/')
+  auth.ready = Promise.resolve()
+  auth.getSession.mockReset().mockResolvedValue({ data: { session: null } })
+  auth.onAuthStateChange
+    .mockReset()
+    .mockReturnValue({ data: { subscription: { unsubscribe() {} } } })
+})
+
+// Vitest globals are off, so Testing Library can't register this itself —
+// without it every render stays mounted and later queries match earlier apps.
+afterEach(cleanup)
+
+describe('arriving from an email link', () => {
+  /* While tokens from the URL are being exchanged, asking Supabase anything
+     returns null and the landing page flashes before the reset screen. App has
+     to hold on its loader, touching no auth state, until the exchange settles. */
+  it('holds on the loader, reading nothing, until authReady settles', async () => {
+    let settle
+    auth.ready = new Promise((resolve) => {
+      settle = resolve
+    })
+
+    render(<App />)
+    await new Promise((r) => setTimeout(r, 30)) // give any premature read its chance
+
+    expect(auth.getSession).not.toHaveBeenCalled()
+    expect(auth.onAuthStateChange).not.toHaveBeenCalled()
+    expect(screen.getByRole('status')).toBeDefined() // the loader
+    expect(document.querySelector('input[type="password"]')).toBeNull()
+
+    settle()
+
+    await waitFor(() => expect(auth.getSession).toHaveBeenCalled())
+    await waitFor(() => expect(auth.onAuthStateChange).toHaveBeenCalled())
+  })
 })
 
 describe('signed out', () => {

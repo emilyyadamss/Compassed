@@ -3,8 +3,7 @@
  *
  * The History API half of the router. These cover the behaviours that are easy
  * to get subtly wrong and impossible to notice until something has gone badly
- * wrong in production — above all that mounting writes nothing to history,
- * which is what keeps this hook from racing Supabase's recovery-token strip.
+ * wrong in production — above all that mounting writes nothing to history.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -53,10 +52,8 @@ describe('mounting', () => {
     expect(result.current[0]).toEqual({ name: 'goal', goalId: 'abc-123' })
   })
 
-  /* THE constraint. supabaseClient builds its client with detectSessionInUrl,
-     which strips `#access_token=...&type=recovery` using its own replaceState.
-     Any write from this hook on mount races that, and losing it leaves an
-     access token in the URL and in browser history. */
+  /* THE constraint: a URL the user arrived on is left as it is until they
+     navigate. That is what lets a signed-out deep link survive sign-in. */
   it('writes nothing to history on mount', () => {
     go('/goal/abc-123')
     renderHook(() => useRoutedView())

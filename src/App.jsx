@@ -17,7 +17,7 @@ import AuthScreen from './components/AuthScreen.jsx'
 import LandingScreen from './components/LandingScreen.jsx'
 import ResetPasswordScreen from './components/ResetPasswordScreen.jsx'
 import Loader from './components/Loader.jsx'
-import { supabase, isRecoveryRedirect } from './lib/supabaseClient.js'
+import { supabase, isRecoveryRedirect, authReady } from './lib/supabaseClient.js'
 import { parsePath, useRoutedView } from './lib/useRoutedView.js'
 import NavLink from './components/NavLink.jsx'
 import {
@@ -105,13 +105,27 @@ export default function App() {
 
   /* ------------------------------------------------------------------ auth */
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => setSession(data.session))
-    const { data: sub } = supabase.auth.onAuthStateChange((event, sess) => {
-      setSession(sess)
-      if (event === 'PASSWORD_RECOVERY') setRecovering(true)
-      if (event === 'SIGNED_OUT') setRecovering(false)
+    // Wait for any tokens from an email link to become a session first; asking
+    // earlier gets null back and flashes the landing page (see authReady).
+    // `cancelled` matters: StrictMode unmounts this effect before authReady has
+    // resolved, and without it that first run would still subscribe, and leak.
+    let cancelled = false
+    let sub = null
+    authReady.then(() => {
+      if (cancelled) return
+      supabase.auth.getSession().then(({ data }) => {
+        if (!cancelled) setSession(data.session)
+      })
+      sub = supabase.auth.onAuthStateChange((event, sess) => {
+        setSession(sess)
+        if (event === 'PASSWORD_RECOVERY') setRecovering(true)
+        if (event === 'SIGNED_OUT') setRecovering(false)
+      }).data.subscription
     })
-    return () => sub.subscription.unsubscribe()
+    return () => {
+      cancelled = true
+      sub?.unsubscribe()
+    }
   }, [])
 
   /* A session arriving while the auth screen is up means sign-in just
