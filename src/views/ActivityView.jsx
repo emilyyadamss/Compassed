@@ -208,6 +208,9 @@ function LogRow({ entry, goal, armed, onArm, onDisarm, onConfirm, onOpen }) {
 
       {armed ? (
         <span className="log-confirm">
+          {/* Focus follows the confirmation into view — moving it here is the
+              accessible behaviour, not a violation of it. */}
+          {/* eslint-disable-next-line jsx-a11y/no-autofocus */}
           <button className="btn btn-sm btn-danger" onClick={onConfirm} autoFocus>
             Delete
           </button>

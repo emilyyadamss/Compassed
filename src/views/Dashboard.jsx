@@ -146,7 +146,7 @@ export default function Dashboard({
       </div>
 
       <div className="stack" style={{ marginBottom: 14 }}>
-        <BalanceBars ranked={scoped} settings={settings} showTable={settings.showTables} />
+        <BalanceBars ranked={scoped} showTable={settings.showTables} />
 
         <div className="card">
           <div className="card-head">

@@ -17,7 +17,7 @@ const PAD_B = 22
 const BAR_H = 16
 const CAP = 1.25 // draw up to 125% — beyond that the bar just reads as "done"
 
-export default function BalanceBars({ ranked, settings, showTable }) {
+export default function BalanceBars({ ranked, showTable }) {
   const [ref, width] = useMeasure()
   const [hover, setHover] = useState(null)
 

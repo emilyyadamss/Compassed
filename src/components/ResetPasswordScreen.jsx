@@ -46,14 +46,16 @@ export default function ResetPasswordScreen({ onDone }) {
         <form onSubmit={submit} className="stack" style={{ gap: 14 }}>
           <div className="field">
             <label htmlFor="reset-password">New password</label>
-            <input
+            {/* Single-purpose screen reached from an email link — the new
+                password field is the only thing to do here. */}
+            {/* eslint-disable-next-line jsx-a11y/no-autofocus */}
+            <input autoFocus
               id="reset-password"
               className="input"
               type="password"
               autoComplete="new-password"
               required
               minLength={6}
-              autoFocus
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />

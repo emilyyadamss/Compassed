@@ -327,20 +327,6 @@ a { color: var(--accent); }
   place-items: center;
   flex: none;
 }
-.nav-item .nav-icon img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-}
-.nav-item .nav-icon .icon-for-dark { display: none; }
-
-@media (prefers-color-scheme: dark) {
-  :root:where(:not([data-theme="light"])) .nav-item .nav-icon .icon-for-light { display: none; }
-  :root:where(:not([data-theme="light"])) .nav-item .nav-icon .icon-for-dark { display: block; }
-}
-
-:root[data-theme="dark"] .nav-item .nav-icon .icon-for-light { display: none; }
-:root[data-theme="dark"] .nav-item .nav-icon .icon-for-dark { display: block; }
 
 .nav-item .nav-name {
   flex: 1;
@@ -776,20 +762,6 @@ textarea.input {
   place-items: center;
   flex: none;
 }
-.nudge-eyebrow .eyebrow-icon img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-}
-.nudge-eyebrow .eyebrow-icon .icon-for-dark { display: none; }
-
-@media (prefers-color-scheme: dark) {
-  :root:where(:not([data-theme="light"])) .nudge-eyebrow .eyebrow-icon .icon-for-light { display: none; }
-  :root:where(:not([data-theme="light"])) .nudge-eyebrow .eyebrow-icon .icon-for-dark { display: block; }
-}
-
-:root[data-theme="dark"] .nudge-eyebrow .eyebrow-icon .icon-for-light { display: none; }
-:root[data-theme="dark"] .nudge-eyebrow .eyebrow-icon .icon-for-dark { display: block; }
 
 .nudge-title {
   font-family: var(--font-serif);

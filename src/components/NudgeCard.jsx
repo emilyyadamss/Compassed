@@ -3,12 +3,7 @@ import { explainNudge, suggestedAction } from '../lib/nudge.js'
 import { nextTask } from '../lib/stats.js'
 import { relativeDays } from '../lib/date.js'
 import { GoalIcon } from '../lib/goalIcons.jsx'
-import pointerIcon from '../assets/pointer.png'
-import pointerIconLight from '../assets/pointer-light.png'
-import leafIcon from '../assets/leaf.png'
-import leafIconLight from '../assets/leaf-light.png'
-import turnIcon from '../assets/turn.png'
-import turnIconLight from '../assets/turn-light.png'
+import { MousePointerClick, RotateCw, Sprout } from 'lucide-react'
 
 export default function NudgeCard({
   pick, ranked, settings, onLog, onOpen, onCycle, cycled, tasks = [], onToggleTask,
@@ -47,16 +42,7 @@ export default function NudgeCard({
         <div className="nudge-body">
           <div className="nudge-eyebrow">
             <span className="eyebrow-icon" aria-hidden="true">
-              <img
-                src={practice ? turnIcon : pick.fresh ? leafIcon : pointerIcon}
-                className="icon-for-light"
-                alt=""
-              />
-              <img
-                src={practice ? turnIconLight : pick.fresh ? leafIconLight : pointerIconLight}
-                className="icon-for-dark"
-                alt=""
-              />
+              {practice ? <RotateCw size={15} /> : pick.fresh ? <Sprout size={15} /> : <MousePointerClick size={15} />}
             </span>
             {practice
               ? 'Keep it from fading'

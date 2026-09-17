@@ -19,6 +19,7 @@ export const colorVar = (slot) => `var(--series-${((slot - 1) % 8) + 1})`
 
 /* Unit presets. `step` drives the quick-log stepper; `precision` how values
    render. Anything here can be overridden per goal, including a custom unit. */
+// prettier-ignore — the column alignment below is deliberate and readable.
 export const UNIT_PRESETS = [
   { id: 'hours',    label: 'Hours',     one: 'hour',    many: 'hours',    abbr: 'h',    step: 0.5, precision: 1 },
   { id: 'minutes',  label: 'Minutes',   one: 'minute',  many: 'minutes',  abbr: 'min',  step: 15,  precision: 0 },

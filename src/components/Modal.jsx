@@ -31,6 +31,9 @@ export default function Modal({ title, onClose, children, footer, width }) {
   }, [onClose])
 
   return (
+    // Click-outside-to-close is a convenience on top of Esc and the close
+    // button, so the backdrop needs no role of its own.
+    // eslint-disable-next-line jsx-a11y/no-static-element-interactions
     <div className="overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}>
       <div
         className="modal"

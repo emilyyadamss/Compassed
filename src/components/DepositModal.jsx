@@ -55,6 +55,9 @@ export default function DepositModal({ pots, byPot, potId, currency, onSave, onC
         </>
       }
     >
+      {/* A keyboard-only shortcut wrapper (⌘↵ to submit) — it adds no
+          mouse-driven behaviour that a keyboard user would miss. */}
+      {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
       <div
         onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) submit() }}
         style={{ display: 'contents' }}

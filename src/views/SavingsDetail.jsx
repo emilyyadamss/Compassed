@@ -157,9 +157,11 @@ export default function SavingsDetail({
                     <span className="log-time">{formatTime(d.loggedAt)}</span>
                     {armed ? (
                       <span className="log-confirm">
-                        <button
+                        {/* Focus follows the confirmation into view — moving it
+                            here is the accessible behaviour, not a violation. */}
+                        {/* eslint-disable-next-line jsx-a11y/no-autofocus */}
+                        <button autoFocus
                           className="btn btn-sm btn-danger"
-                          autoFocus
                           onClick={() => { onDeleteDeposit(d.id); setConfirming(null) }}
                         >
                           Delete

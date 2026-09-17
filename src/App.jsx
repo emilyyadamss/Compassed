@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ChevronDown, PiggyBank } from 'lucide-react'
+import { ChevronDown, Home, PiggyBank, Settings } from 'lucide-react'
 import Dashboard from './views/Dashboard.jsx'
 import GoalDetail from './views/GoalDetail.jsx'
 import SettingsView from './views/SettingsView.jsx'
@@ -26,7 +26,7 @@ import {
 import { buildSample } from './lib/sample.js'
 import {
   colorVar, newGoal, newEntry, newTask, indexTasks, reopenTask, unitFor, formatAmount, unitWord,
-  DEFAULT_SETTINGS, groupByCategory, categoryLabel, STATUS, isActive, isRevisit, isDone,
+  DEFAULT_SETTINGS, groupByCategory, categoryLabel, STATUS, isActive, isDone,
   inPlay, statusOf, withStatus, revisitLabel, withUnit,
 } from './lib/model.js'
 import {
@@ -39,10 +39,6 @@ import { scoreGoals, pickNudge } from './lib/nudge.js'
 import { todayKey } from './lib/date.js'
 import logoUrl from './assets/logo.png'
 import logoLightUrl from './assets/logo-light.png'
-import homeIcon from './assets/home.png'
-import homeIconLight from './assets/home-light.png'
-import settingsIcon from './assets/settings.png'
-import settingsIconLight from './assets/settings-light.png'
 
 // The theme lives in the db, which loads after the first paint. Remember the
 // last one locally so the loader and pre-auth screens don't flash the wrong mode.
@@ -146,7 +142,6 @@ export default function App() {
   // Only pots still being filled can take money; the bought ones are history.
   const fillable = useMemo(() => pots.filter(isSaving), [pots])
   const activeGoals = useMemo(() => goals.filter(isActive), [goals])
-  const revisitGoals = useMemo(() => goals.filter(isRevisit), [goals])
   const archived = useMemo(() => goals.filter(isDone), [goals])
   // Anything you can still log against: active goals and goals in revisit.
   const loggable = useMemo(() => goals.filter(inPlay), [goals])
@@ -541,8 +536,7 @@ export default function App() {
           onClick={() => setView({ name: 'dashboard' })}
         >
           <span className="nav-icon" aria-hidden="true">
-            <img src={homeIcon} className="icon-for-light" alt="" />
-            <img src={homeIconLight} className="icon-for-dark" alt="" />
+            <Home size={16} />
           </span>
           <span className="nav-name">Today</span>
         </button>
@@ -674,8 +668,7 @@ export default function App() {
             onClick={() => setView({ name: 'settings' })}
           >
             <span className="nav-icon" aria-hidden="true">
-              <img src={settingsIcon} className="icon-for-light" alt="" />
-              <img src={settingsIconLight} className="icon-for-dark" alt="" />
+              <Settings size={16} />
             </span>
             <span className="nav-name">Settings</span>
             <span className="nav-meta">,</span>

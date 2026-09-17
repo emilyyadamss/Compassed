@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Vercel's git integration handles deploys; this workflow only checks.
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      # `npm run format:check` is deliberately not run here. The repo predates
+      # Prettier and 42 files would fail; the agreed approach is to format files
+      # as they're touched rather than in one blame-destroying sweep. Add this
+      # step once the tree is clean.
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      # The date helpers key everything to the user's local day. Bugs that slice
+      # ISO strings are invisible under UTC, so the suite runs either side of it:
+      # Kiritimati is +14, Honolulu is -10.
+      matrix:
+        tz: [UTC, Pacific/Kiritimati, Pacific/Honolulu]
+    env:
+      TZ: ${{ matrix.tz }}
+      # supabaseClient.js throws at module load without these. Nothing here
+      # reaches the network — they exist so an import of App.jsx can't explode.
+      VITE_SUPABASE_URL: http://localhost:54321
+      VITE_SUPABASE_ANON_KEY: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm test
+
+  build:
+    runs-on: ubuntu-latest
+    env:
+      VITE_SUPABASE_URL: http://localhost:54321
+      VITE_SUPABASE_ANON_KEY: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run build

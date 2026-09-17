@@ -13,7 +13,7 @@
 
    Goals in revisit are scored on a third signal entirely — see below. */
 
-import { relativeDays, formatShort } from './date.js'
+import { relativeDays } from './date.js'
 import { goalStats, revisitStatus } from './stats.js'
 import { unitFor, withUnit, inPlay, isRevisit, revisitEvery } from './model.js'
 
@@ -84,8 +84,7 @@ export function pickNudge(ranked) {
 }
 
 /** Plain-English explanation of why this goal won. */
-export function explainNudge({ goal, stats, recency, deficit, fresh, mode, revisit }, settings) {
-  const unit = unitFor(goal)
+export function explainNudge({ goal, stats, recency, deficit, fresh, mode, revisit }, _settings) {
   const window = goal.cadence === 'month' ? 'month' : 'week'
 
   if (mode === 'revisit') {
