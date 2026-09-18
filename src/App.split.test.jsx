@@ -11,7 +11,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 
 const auth = vi.hoisted(() => ({
   getSession: vi.fn(),
@@ -50,6 +50,18 @@ function widthMatches(matches) {
 
 const findMenuButton = () => screen.queryByRole('button', { name: /open menu/i })
 
+/* App mounts the shell, replaces it with a loader while the goals load, then
+   mounts it again, so there is no single moment that reliably means "ready".
+   A node captured from the first pass is detached by the time it is used, and
+   clicking it silently does nothing, because the event never reaches React's
+   listener on the container. That was this file's CI failure; it hid on a fast
+   machine, where the whole sequence finished inside one query.
+
+   So no shared "wait until settled" helper: each test below pairs what it is
+   asserting with proof the shell is up, in the same waitFor. Paired that way a
+   check cannot pass merely because nothing is mounted, and never holds a node
+   across a re-render. */
+
 beforeEach(() => {
   window.history.replaceState(null, '', '/')
   auth.getSession.mockReset().mockResolvedValue({
@@ -76,7 +88,7 @@ describe('the mobile nav', () => {
     widthMatches(true)
     render(<App />)
 
-    await waitFor(() => expect(findMenuButton()).not.toBeNull(), { timeout: 3000 })
+    await waitFor(() => expect(findMenuButton()).not.toBeNull(), { timeout: 5000 })
   })
 
   /* The one that matters. The sidebar already covers desktop, so the nav is
@@ -85,11 +97,12 @@ describe('the mobile nav', () => {
     widthMatches(false)
     render(<App />)
 
-    // Wait for the sidebar, so this is not passing merely because nothing has
-    // rendered yet.
-    await screen.findByRole('complementary', {}, { timeout: 3000 })
-
-    expect(findMenuButton()).toBeNull()
+    // Both in one poll: the sidebar proves the shell is up, so the missing nav
+    // button means absent rather than not-yet-rendered.
+    await waitFor(() => {
+      expect(screen.getByRole('complementary')).toBeTruthy()
+      expect(findMenuButton()).toBeNull()
+    }, { timeout: 5000 })
   })
 })
 
@@ -101,7 +114,7 @@ describe('a view that is no longer in the first download', () => {
     window.history.replaceState(null, '', '/activity')
     render(<App />)
 
-    expect(await screen.findByRole('heading', { name: /activity/i }, { timeout: 3000 }))
+    expect(await screen.findByRole('heading', { name: /activity/i }, { timeout: 5000 }))
       .not.toBeNull()
   })
 
@@ -109,10 +122,14 @@ describe('a view that is no longer in the first download', () => {
     widthMatches(false)
     render(<App />)
 
-    const link = await screen.findByRole('link', { name: /settings/i }, { timeout: 3000 })
-    link.click()
-
-    expect(await screen.findByRole('heading', { name: /settings/i }, { timeout: 3000 }))
-      .not.toBeNull()
+    /* Queried and clicked inside the poll, so the link is always one currently
+       on screen. The path check keeps this to a single navigation: once the URL
+       has moved, later polls only wait for the view's chunk to arrive. */
+    await waitFor(() => {
+      if (window.location.pathname !== '/settings') {
+        fireEvent.click(screen.getByRole('link', { name: /settings/i }))
+      }
+      expect(screen.getByRole('heading', { name: /settings/i })).toBeTruthy()
+    }, { timeout: 5000 })
   })
 })
