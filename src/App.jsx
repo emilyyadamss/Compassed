@@ -1,25 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronDown, Home, PiggyBank, Settings } from 'lucide-react'
 import Dashboard from './views/Dashboard.jsx'
-import GoalDetail from './views/GoalDetail.jsx'
-import SettingsView from './views/SettingsView.jsx'
-import ArchiveView from './views/ArchiveView.jsx'
-import ActivityView from './views/ActivityView.jsx'
-import SavingsView from './views/SavingsView.jsx'
-import SavingsDetail from './views/SavingsDetail.jsx'
-import GoalEditor from './components/GoalEditor.jsx'
-import SavingsEditor from './components/SavingsEditor.jsx'
-import DepositModal from './components/DepositModal.jsx'
-import MobileNav from './components/MobileNav.jsx'
-import LogModal from './components/LogModal.jsx'
-import CompleteModal from './components/CompleteModal.jsx'
-import AuthScreen from './components/AuthScreen.jsx'
-import LandingScreen from './components/LandingScreen.jsx'
-import ResetPasswordScreen from './components/ResetPasswordScreen.jsx'
 import Loader from './components/Loader.jsx'
 import { supabase, isRecoveryRedirect, authReady } from './lib/supabaseClient.js'
 import { parsePath, useRoutedView } from './lib/useRoutedView.js'
+import useMediaQuery from './lib/useMediaQuery.js'
 import NavLink from './components/NavLink.jsx'
+
 import {
   fetchState, putGoal, removeGoal, putEntry, removeEntry, putTask, removeTask,
   putPot, removePot, putDeposit, removeDeposit,
@@ -41,6 +28,48 @@ import { scoreGoals, pickNudge } from './lib/nudge.js'
 import { todayKey } from './lib/date.js'
 import logoUrl from './assets/logo.png'
 import logoLightUrl from './assets/logo-light.png'
+
+/* Everything below loads on demand. The dashboard stays a plain import: it is
+   where a signed-in visit lands, so deferring it would only add a round-trip to
+   the one screen everybody sees. The rest are screens you may never open, and
+   their code is no longer part of the first download. */
+const GoalDetail = lazy(() => import('./views/GoalDetail.jsx'))
+const SettingsView = lazy(() => import('./views/SettingsView.jsx'))
+const ArchiveView = lazy(() => import('./views/ArchiveView.jsx'))
+const ActivityView = lazy(() => import('./views/ActivityView.jsx'))
+const SavingsView = lazy(() => import('./views/SavingsView.jsx'))
+const SavingsDetail = lazy(() => import('./views/SavingsDetail.jsx'))
+const GoalEditor = lazy(() => import('./components/GoalEditor.jsx'))
+const SavingsEditor = lazy(() => import('./components/SavingsEditor.jsx'))
+const DepositModal = lazy(() => import('./components/DepositModal.jsx'))
+const LogModal = lazy(() => import('./components/LogModal.jsx'))
+const CompleteModal = lazy(() => import('./components/CompleteModal.jsx'))
+const AuthScreen = lazy(() => import('./components/AuthScreen.jsx'))
+const LandingScreen = lazy(() => import('./components/LandingScreen.jsx'))
+const ResetPasswordScreen = lazy(() => import('./components/ResetPasswordScreen.jsx'))
+const MobileNav = lazy(() => import('./components/MobileNav.jsx'))
+
+/* A modal opens on a click, and a click that shows nothing while a chunk
+   downloads reads as a button that missed. Fetch them once the app is sitting
+   idle, so by the time anything is clicked they are already in memory. */
+const warmModals = () => {
+  import('./components/GoalEditor.jsx')
+  import('./components/LogModal.jsx')
+  import('./components/CompleteModal.jsx')
+  import('./components/SavingsEditor.jsx')
+  import('./components/DepositModal.jsx')
+}
+
+const authFallback = <div className="auth-screen"><Loader /></div>
+/* Each view gets its own boundary rather than one around the whole of <main>:
+   a shared boundary would blank the page heading too, so a heading that is
+   already rendered would disappear and come back. */
+const viewFallback = <Loader />
+
+// Matches the breakpoint where styles.css swaps the sidebar for the mobile nav.
+// Kept in step with that media query by hand: a desktop that never crosses it
+// never downloads the nav, and the animation library only it uses.
+const MOBILE_NAV_QUERY = '(max-width: 900px)'
 
 // The theme lives in the db, which loads after the first paint. Remember the
 // last one locally so the loader and pre-auth screens don't flash the wrong mode.
@@ -73,6 +102,7 @@ export default function App() {
      included. `setView` keeps its old name and shape so every call site below
      reads the same as it did before the address bar was involved. */
   const [view, setView] = useRoutedView()
+  const isMobile = useMediaQuery(MOBILE_NAV_QUERY)
   const [editing, setEditing] = useState(null)     // { goal, isNew }
   const [logging, setLogging] = useState(null)     // { goalId, date }
   const [editingPot, setEditingPot] = useState(null) // { pot, isNew }
@@ -92,6 +122,19 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('collapsedCategories', JSON.stringify(collapsedCategories))
   }, [collapsedCategories])
+
+  // Only once signed in: a visitor on the landing page has no modals to open,
+  // and the point is to leave their first load alone.
+  useEffect(() => {
+    if (!session) return
+    const idle = window.requestIdleCallback
+    if (idle) {
+      const id = idle(warmModals)
+      return () => window.cancelIdleCallback(id)
+    }
+    const id = setTimeout(warmModals, 2000)
+    return () => clearTimeout(id)
+  }, [session])
 
   const { goals, entries, settings } = state
   // Older saves (and backups written before task lists or savings existed)
@@ -523,24 +566,30 @@ export default function App() {
        where to return to once there is a session. */
     if (view.name === 'signin' || view.name === 'signup') {
       return (
-        <AuthScreen
-          initialMode={view.name}
-          onBack={() => setView({ name: 'dashboard' })}
-        />
+        <Suspense fallback={authFallback}>
+          <AuthScreen
+            initialMode={view.name}
+            onBack={() => setView({ name: 'dashboard' })}
+          />
+        </Suspense>
       )
     }
     return (
-      <LandingScreen
-        onSignUp={() => setView({ name: 'signup' }, { state: { from: window.location.pathname } })}
-        onSignIn={() => setView({ name: 'signin' }, { state: { from: window.location.pathname } })}
-      />
+      <Suspense fallback={authFallback}>
+        <LandingScreen
+          onSignUp={() => setView({ name: 'signup' }, { state: { from: window.location.pathname } })}
+          onSignIn={() => setView({ name: 'signin' }, { state: { from: window.location.pathname } })}
+        />
+      </Suspense>
     )
   }
   if (recovering) {
     return (
-      <ResetPasswordScreen
-        onDone={() => { setRecovering(false); toast('Password updated') }}
-      />
+      <Suspense fallback={authFallback}>
+        <ResetPasswordScreen
+          onDone={() => { setRecovering(false); toast('Password updated') }}
+        />
+      </Suspense>
     )
   }
   if (dataLoading) {
@@ -557,13 +606,20 @@ export default function App() {
         Compassed
       </div>
 
-      <MobileNav
-        view={view}
-        setView={setView}
-        archivedCount={archived.length}
-        onNewGoal={openNewGoal}
-        onAddMoney={pots.length > 0 ? openDeposit : null}
-      />
+      {/* Only mounted at the width where it is actually visible. The nav is the
+          one thing that animates outside the pre-auth screens, so leaving it
+          out keeps the animation library off desktop entirely. */}
+      {isMobile && (
+        <Suspense fallback={null}>
+          <MobileNav
+            view={view}
+            setView={setView}
+            archivedCount={archived.length}
+            onNewGoal={openNewGoal}
+            onAddMoney={pots.length > 0 ? openDeposit : null}
+          />
+        </Suspense>
+      )}
 
       <aside className="sidebar">
         <div className="brand">
@@ -774,23 +830,25 @@ export default function App() {
         )}
 
         {view.name === 'goal' && currentGoal && (
-          <GoalDetail
-            goal={currentGoal}
-            entries={entries}
-            days={byGoal.get(currentGoal.id)}
-            tasks={byTask.get(currentGoal.id)}
-            settings={settings}
-            onEdit={(g) => setEditing({ goal: g, isNew: false })}
-            onLog={openLog}
-            onDeleteEntry={deleteEntry}
-            onBack={() => setView({ name: statusOf(currentGoal) === STATUS.DONE ? 'archive' : 'dashboard' })}
-            onComplete={(g) => setFinishing({ goal: g, intent: 'complete' })}
-            onRevisit={(g) => setFinishing({ goal: g, intent: 'revisit' })}
-            onReactivate={reactivateGoal}
-            onAddTask={addTask}
-            onToggleTask={toggleTask}
-            onDeleteTask={deleteTask}
-          />
+          <Suspense fallback={viewFallback}>
+            <GoalDetail
+              goal={currentGoal}
+              entries={entries}
+              days={byGoal.get(currentGoal.id)}
+              tasks={byTask.get(currentGoal.id)}
+              settings={settings}
+              onEdit={(g) => setEditing({ goal: g, isNew: false })}
+              onLog={openLog}
+              onDeleteEntry={deleteEntry}
+              onBack={() => setView({ name: statusOf(currentGoal) === STATUS.DONE ? 'archive' : 'dashboard' })}
+              onComplete={(g) => setFinishing({ goal: g, intent: 'complete' })}
+              onRevisit={(g) => setFinishing({ goal: g, intent: 'revisit' })}
+              onReactivate={reactivateGoal}
+              onAddTask={addTask}
+              onToggleTask={toggleTask}
+              onDeleteTask={deleteTask}
+            />
+          </Suspense>
         )}
 
         {view.name === 'activity' && (
@@ -807,13 +865,15 @@ export default function App() {
                 <button className="btn btn-primary" onClick={() => openLog()}>Log progress</button>
               )}
             </div>
-            <ActivityView
-              goals={goals}
-              entries={entries}
-              onDelete={deleteEntry}
-              onOpen={(id) => setView({ name: 'goal', goalId: id })}
-              onLog={openLog}
-            />
+            <Suspense fallback={viewFallback}>
+              <ActivityView
+                goals={goals}
+                entries={entries}
+                onDelete={deleteEntry}
+                onOpen={(id) => setView({ name: 'goal', goalId: id })}
+                onLog={openLog}
+              />
+            </Suspense>
           </>
         )}
 
@@ -836,29 +896,33 @@ export default function App() {
                 </div>
               </div>
             )}
-            <SavingsView
-              pots={pots}
-              byPot={byPot}
-              currency={currency}
-              onOpen={(id) => setView({ name: 'pot', potId: id })}
-              onDeposit={openDeposit}
-              onNewPot={openNewPot}
-              onBought={(pot) => setPotStatus(pot.id, SAVINGS_STATUS.BOUGHT)}
-            />
+            <Suspense fallback={viewFallback}>
+              <SavingsView
+                pots={pots}
+                byPot={byPot}
+                currency={currency}
+                onOpen={(id) => setView({ name: 'pot', potId: id })}
+                onDeposit={openDeposit}
+                onNewPot={openNewPot}
+                onBought={(pot) => setPotStatus(pot.id, SAVINGS_STATUS.BOUGHT)}
+              />
+            </Suspense>
           </>
         )}
 
         {view.name === 'pot' && currentPot && (
-          <SavingsDetail
-            pot={currentPot}
-            deposits={byPot.get(currentPot.id) || []}
-            currency={currency}
-            onEdit={(pot) => setEditingPot({ pot, isNew: false })}
-            onDeposit={openDeposit}
-            onDeleteDeposit={deleteDeposit}
-            onSetStatus={setPotStatus}
-            onBack={() => setView({ name: 'savings' })}
-          />
+          <Suspense fallback={viewFallback}>
+            <SavingsDetail
+              pot={currentPot}
+              deposits={byPot.get(currentPot.id) || []}
+              currency={currency}
+              onEdit={(pot) => setEditingPot({ pot, isNew: false })}
+              onDeposit={openDeposit}
+              onDeleteDeposit={deleteDeposit}
+              onSetStatus={setPotStatus}
+              onBack={() => setView({ name: 'savings' })}
+            />
+          </Suspense>
         )}
 
         {view.name === 'pot' && !currentPot && (
@@ -880,15 +944,17 @@ export default function App() {
               </div>
               <button className="btn" onClick={() => setView({ name: 'dashboard' })}>← Today</button>
             </div>
-            <ArchiveView
-              goals={archived}
-              byGoal={byGoal}
-              settings={settings}
-              onOpen={(id) => setView({ name: 'goal', goalId: id })}
-              onReactivate={reactivateGoal}
-              onRevisit={(g) => setFinishing({ goal: g, intent: 'revisit' })}
-              onBack={() => setView({ name: 'dashboard' })}
-            />
+            <Suspense fallback={viewFallback}>
+              <ArchiveView
+                goals={archived}
+                byGoal={byGoal}
+                settings={settings}
+                onOpen={(id) => setView({ name: 'goal', goalId: id })}
+                onReactivate={reactivateGoal}
+                onRevisit={(g) => setFinishing({ goal: g, intent: 'revisit' })}
+                onBack={() => setView({ name: 'dashboard' })}
+              />
+            </Suspense>
           </>
         )}
 
@@ -911,94 +977,106 @@ export default function App() {
         )}
 
         {view.name === 'settings' && (
-          <SettingsView
-            settings={settings}
-            setSettings={setSettings}
-            state={state}
-            ranked={ranked}
-            toast={toast}
-            email={session.user.email}
-            onSignOut={() => supabase.auth.signOut()}
-            onDeleteAccount={async () => {
-              const { error } = await supabase.functions.invoke('delete-account')
-              if (error) throw error
-              await supabase.auth.signOut()
-            }}
-            onImport={(next) => {
-              setState(next)
-              replaceAll(userId, next).catch(syncFail('Restored locally, but the cloud sync failed'))
-              toast('Backup restored')
-              setView({ name: 'dashboard' }, { replace: true })
-            }}
-            onLoadSample={loadSample}
-            onClearAll={() => {
-              const next = {
-                goals: [], entries: [], tasks: [], pots: [], deposits: [],
-                settings: { ...DEFAULT_SETTINGS, theme: settings.theme, currency },
-              }
-              setState(next)
-              replaceData(userId, { goals: [], entries: [], tasks: [], pots: [], deposits: [] })
-                .catch(syncFail('Could not clear cloud data'))
-              putSettings(userId, next.settings).catch(syncFail('Could not clear cloud data'))
-              setView({ name: 'dashboard' }, { replace: true })
-              toast('All data cleared')
-            }}
-          />
+          <Suspense fallback={viewFallback}>
+            <SettingsView
+              settings={settings}
+              setSettings={setSettings}
+              state={state}
+              ranked={ranked}
+              toast={toast}
+              email={session.user.email}
+              onSignOut={() => supabase.auth.signOut()}
+              onDeleteAccount={async () => {
+                const { error } = await supabase.functions.invoke('delete-account')
+                if (error) throw error
+                await supabase.auth.signOut()
+              }}
+              onImport={(next) => {
+                setState(next)
+                replaceAll(userId, next).catch(syncFail('Restored locally, but the cloud sync failed'))
+                toast('Backup restored')
+                setView({ name: 'dashboard' }, { replace: true })
+              }}
+              onLoadSample={loadSample}
+              onClearAll={() => {
+                const next = {
+                  goals: [], entries: [], tasks: [], pots: [], deposits: [],
+                  settings: { ...DEFAULT_SETTINGS, theme: settings.theme, currency },
+                }
+                setState(next)
+                replaceData(userId, { goals: [], entries: [], tasks: [], pots: [], deposits: [] })
+                  .catch(syncFail('Could not clear cloud data'))
+                putSettings(userId, next.settings).catch(syncFail('Could not clear cloud data'))
+                setView({ name: 'dashboard' }, { replace: true })
+                toast('All data cleared')
+              }}
+            />
+          </Suspense>
         )}
       </main>
 
       {editing && (
-        <GoalEditor
-          goal={editing.goal}
-          isNew={editing.isNew}
-          allGoals={goals}
-          onSave={saveGoal}
-          onDelete={deleteGoal}
-          onClose={() => setEditing(null)}
-        />
+        <Suspense fallback={null}>
+          <GoalEditor
+            goal={editing.goal}
+            isNew={editing.isNew}
+            allGoals={goals}
+            onSave={saveGoal}
+            onDelete={deleteGoal}
+            onClose={() => setEditing(null)}
+          />
+        </Suspense>
       )}
 
       {editingPot && (
-        <SavingsEditor
-          pot={editingPot.pot}
-          isNew={editingPot.isNew}
-          currency={currency}
-          saved={potStats(editingPot.pot, byPot.get(editingPot.pot.id) || []).saved}
-          onSave={savePot}
-          onDelete={deletePot}
-          onClose={() => setEditingPot(null)}
-        />
+        <Suspense fallback={null}>
+          <SavingsEditor
+            pot={editingPot.pot}
+            isNew={editingPot.isNew}
+            currency={currency}
+            saved={potStats(editingPot.pot, byPot.get(editingPot.pot.id) || []).saved}
+            onSave={savePot}
+            onDelete={deletePot}
+            onClose={() => setEditingPot(null)}
+          />
+        </Suspense>
       )}
 
       {depositing && (
-        <DepositModal
-          pots={fillable}
-          byPot={byPot}
-          potId={depositing.potId}
-          currency={currency}
-          onSave={addDeposit}
-          onClose={() => setDepositing(null)}
-        />
+        <Suspense fallback={null}>
+          <DepositModal
+            pots={fillable}
+            byPot={byPot}
+            potId={depositing.potId}
+            currency={currency}
+            onSave={addDeposit}
+            onClose={() => setDepositing(null)}
+          />
+        </Suspense>
       )}
 
       {finishing && (
-        <CompleteModal
-          goal={finishing.goal}
-          stats={goalStats(finishing.goal, byGoal.get(finishing.goal.id), settings, todayKey())}
-          intent={finishing.intent}
-          onConfirm={(choice) => finishGoal(finishing.goal.id, choice)}
-          onClose={() => setFinishing(null)}
-        />
+        <Suspense fallback={null}>
+          <CompleteModal
+            goal={finishing.goal}
+            stats={goalStats(finishing.goal, byGoal.get(finishing.goal.id), settings, todayKey())}
+            intent={finishing.intent}
+            onConfirm={(choice) => finishGoal(finishing.goal.id, choice)}
+            onClose={() => setFinishing(null)}
+          />
+        </Suspense>
       )}
 
       {logging && (
-        <LogModal
-          goals={loggable}
-          goalId={logging.goalId}
-          date={logging.date}
-          onSave={addEntry}
-          onClose={() => setLogging(null)}
-        />
+        <Suspense fallback={null}>
+          <LogModal
+            goals={loggable}
+            goalId={logging.goalId}
+            date={logging.date}
+            onSave={addEntry}
+            onClose={() => setLogging(null)}
+          />
+        </Suspense>
       )}
 
       <div className="toasts">

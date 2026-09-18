@@ -1,5 +1,4 @@
-import { useMemo, useState } from 'react'
-import Welcome from '../components/Welcome.jsx'
+import { Suspense, lazy, useMemo, useState } from 'react'
 import NudgeCard from '../components/NudgeCard.jsx'
 import GoalCard from '../components/GoalCard.jsx'
 import RevisitCard from '../components/RevisitCard.jsx'
@@ -8,6 +7,11 @@ import Heatmap from '../components/Heatmap.jsx'
 import { balanceScore, periodTotals } from '../lib/stats.js'
 import { todayKey, addDays, startOfWeek } from '../lib/date.js'
 import { categoryList, categoryLabel, groupByCategory, normaliseCategory } from '../lib/model.js'
+
+/* The first-run greeting, shown only while there is nothing on the board.
+   It is also the only animated thing on this screen, so deferring it keeps the
+   animation library out of the download for everyone past their first goal. */
+const Welcome = lazy(() => import('../components/Welcome.jsx'))
 
 const GOALS_UNIT = { one: 'goal', many: 'goals', abbr: '', precision: 0, step: 1 }
 
@@ -78,7 +82,11 @@ export default function Dashboard({
     [...ranked, ...revisit].filter((r) => normaliseCategory(r.goal.category) === c).length
 
   if (boardGoals.length === 0) {
-    return <Welcome onNewGoal={onNewGoal} onLoadSample={onLoadSample} />
+    return (
+      <Suspense fallback={null}>
+        <Welcome onNewGoal={onNewGoal} onLoadSample={onLoadSample} />
+      </Suspense>
+    )
   }
 
   return (
