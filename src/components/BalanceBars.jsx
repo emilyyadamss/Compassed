@@ -25,9 +25,11 @@ export default function BalanceBars({ ranked, showTable }) {
     .map(({ goal, stats }) => {
       const unit = unitFor(goal)
       const pct = stats.target > 0 ? stats.rolling / stats.target : stats.rolling > 0 ? 1 : 0
-      return { goal, stats, unit, pct }
+      return { goal, stats, unit, pct, unstarted: stats.daysSince == null }
     })
-    .sort((a, b) => a.pct - b.pct)
+    // A goal that's never been logged at all outranks one that's merely behind
+    // this cycle — both read 0%, but only one of them has ever been started.
+    .sort((a, b) => b.unstarted - a.unstarted || a.pct - b.pct)
 
   if (rows.length === 0) return null
 
@@ -44,7 +46,7 @@ export default function BalanceBars({ ranked, showTable }) {
         <div>
           <div className="card-title">Balance across goals</div>
           <div className="card-sub">
-            Progress against each goal's own target over its last cycle. Lowest first
+            Progress against each goal's own target over its last cycle. Never-logged goals first, then lowest first
           </div>
         </div>
       </div>

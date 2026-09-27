@@ -201,9 +201,9 @@ describe('scoreGoals', () => {
   it('sorts by score descending', () => {
     const goals = [
       goal({ id: 'fresh' }), // logged today → low score
-      goal({ id: 'stale' }), // never logged → high score
+      goal({ id: 'stale' }), // last logged months ago → high score
     ]
-    const entries = [entry('fresh', TODAY, 7)]
+    const entries = [entry('fresh', TODAY, 7), entry('stale', '2025-02-01', 7)]
     const ranked = scoreGoals(goals, index(entries), settings(), TODAY)
     expect(ranked[0].goal.id).toBe('stale')
     expect(ranked[0].score).toBeGreaterThan(ranked[1].score)
@@ -221,6 +221,39 @@ describe('scoreGoals', () => {
     expect(ranked.map((r) => r.score)).toEqual([0, 0])
     expect(ranked[0].goal.id).toBe('ancient')
   })
+
+  /* Getting a goal started beats topping up one that's under way, even when
+     the started one is further behind: 0% of something ever logged is a lapse,
+     0% of nothing ever logged is a goal that hasn't begun. */
+  it('ranks never-logged active goals ahead of higher-scoring started ones', () => {
+    const goals = [
+      goal({ id: 'slipping' }), // logged once, months ago → near-max score
+      goal({ id: 'unstarted', createdAt: `${TODAY}T09:00:00.000Z` }), // brand new → tiny score
+    ]
+    const entries = [entry('slipping', '2025-01-02', 1)]
+    const ranked = scoreGoals(goals, index(entries), settings(), TODAY)
+    expect(ranked[1].score).toBeGreaterThan(ranked[0].score)
+    expect(ranked.map((r) => r.goal.id)).toEqual(['unstarted', 'slipping'])
+  })
+
+  it('orders several never-logged goals among themselves by score', () => {
+    const goals = [
+      goal({ id: 'new', createdAt: `${TODAY}T09:00:00.000Z` }),
+      goal({ id: 'old' }), // created in January, still never logged
+    ]
+    const ranked = scoreGoals(goals, index([]), settings(), TODAY)
+    expect(ranked.map((r) => r.goal.id)).toEqual(['old', 'new'])
+  })
+
+  it('does not lift a never-logged revisit goal to the front', () => {
+    const goals = [
+      goal({ id: 'revisit', status: 'revisit', revisitEvery: 30, createdAt: `${TODAY}T09:00:00.000Z` }),
+      goal({ id: 'started' }),
+    ]
+    const entries = [entry('started', '2025-06-01', 1)]
+    const ranked = scoreGoals(goals, index(entries), settings(), TODAY)
+    expect(ranked[0].goal.id).toBe('started')
+  })
 })
 
 describe('pickNudge', () => {
@@ -229,12 +262,12 @@ describe('pickNudge', () => {
   })
 
   it('returns the top goal once it crosses the threshold', () => {
-    const ranked = scoreGoals([goal()], index([]), settings(), TODAY)
+    const ranked = scoreGoals([goal()], index([entry('g1', '2025-02-01', 1)]), settings(), TODAY)
     expect(ranked[0].score).toBeGreaterThanOrEqual(0.2)
     expect(pickNudge(ranked)).toBe(ranked[0])
   })
 
-  it('surfaces an unstarted goal even when it is not ranked first', () => {
+  it('surfaces an unstarted goal even when its score is below the threshold', () => {
     const goals = [
       // on target, logged yesterday → scores low but above the unstarted goal
       goal({ id: 'ontrack' }),
@@ -244,8 +277,23 @@ describe('pickNudge', () => {
     const entries = [entry('ontrack', '2025-06-14', 7)]
     const ranked = scoreGoals(goals, index(entries), settings(), TODAY)
 
-    expect(ranked[0].score).toBeLessThan(0.2) // nothing is actually slipping
-    expect(ranked[0].goal.id).not.toBe('unstarted') // and it isn't first
+    const unstarted = ranked.find((r) => r.goal.id === 'unstarted')
+    expect(unstarted.score).toBeLessThan(0.2)
+
+    const pick = pickNudge(ranked)
+    expect(pick.goal.id).toBe('unstarted')
+    expect(pick.fresh).toBe(true)
+  })
+
+  it('picks an unstarted goal over one that is slipping', () => {
+    const goals = [
+      goal({ id: 'slipping' }),
+      goal({ id: 'unstarted', createdAt: `${TODAY}T09:00:00.000Z` }),
+    ]
+    const entries = [entry('slipping', '2025-01-02', 1)]
+    const ranked = scoreGoals(goals, index(entries), settings(), TODAY)
+    const slipping = ranked.find((r) => r.goal.id === 'slipping')
+    expect(slipping.score).toBeGreaterThanOrEqual(0.2)
 
     const pick = pickNudge(ranked)
     expect(pick.goal.id).toBe('unstarted')

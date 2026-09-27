@@ -47,6 +47,10 @@ A rolling window is used rather than the calendar week on purpose: a calendar
 week resets to zero every Monday and would claim you're 100% behind on Monday
 morning.
 
+An active goal you've never logged always goes to the front of the queue, ahead
+of goals that are slipping: getting something started matters more than topping
+up something already under way. (Revisit goals are exempt.)
+
 When every goal is fresh and near target, the nudge card says so instead of
 manufacturing something to worry about.
 
@@ -71,7 +75,7 @@ And across all goals, on **Today**:
 
 - The nudge card, with the reason it picked that goal and a bite-sized ask.
 - **Balance across goals** — every goal on one axis as a share of its own target,
-  lowest first. This is the direct answer to "which one am I neglecting?"
+  goals you've never logged first, then lowest first. This is the direct answer to "which one am I neglecting?"
 - A **category filter row**, scoping the board to Learning, Health, Creative, or
   whatever you name — see [Categories](#categories) below.
 - **Attention balance** (0–100) — normalised entropy of how your effort is spread.

@@ -9,7 +9,9 @@
                 of the goal's own cadence. Unit-free, so hours and projects
                 and pages compete fairly.
 
-   score = w·recency + (1−w)·deficit, and the highest score gets nudged.
+   score = w·recency + (1−w)·deficit, and the highest score gets nudged —
+   except that an active goal you've never logged at all always goes first.
+   Getting a goal started matters more than topping up one already under way.
 
    Goals in revisit are scored on a third signal entirely — see below. */
 
@@ -66,19 +68,25 @@ export function scoreGoals(goals, byGoal, settings, today) {
       const score = w * recency + (1 - w) * deficit
       return { goal, stats, mode: 'active', recency, deficit, score }
     })
-    .sort((a, b) => b.score - a.score || b.stats.quietFor - a.stats.quietFor)
+    .sort((a, b) =>
+      isUnstarted(b) - isUnstarted(a)
+      || b.score - a.score
+      || b.stats.quietFor - a.stats.quietFor)
+}
+
+/** Never logged, and not a revisit goal — one that isn't due yet has earned its quiet. */
+function isUnstarted(r) {
+  return r.mode !== 'revisit' && r.stats.daysSince == null
 }
 
 /** The single goal to surface, or null when everything is genuinely on track. */
 export function pickNudge(ranked) {
   if (ranked.length === 0) return null
   const top = ranked[0]
+  // Unstarted goals are ranked first, so if there is one it's on top. It gets
+  // the spotlight whatever its score — as an invitation, not an accusation.
+  if (isUnstarted(top)) return { ...top, fresh: true }
   if (top.score >= 0.2) return top
-  // Nothing is slipping. But a goal you've never started still deserves the
-  // spotlight — as an invitation, not an accusation. Revisit goals are exempt:
-  // one that isn't due yet has earned its quiet.
-  const unstarted = ranked.find((r) => r.mode !== 'revisit' && r.stats.daysSince == null)
-  if (unstarted) return { ...unstarted, fresh: true }
   // Everyone's active and on target — say so instead of manufacturing urgency.
   return null
 }
@@ -100,7 +108,7 @@ export function explainNudge({ goal, stats, recency, deficit, fresh, mode, revis
 
   if (fresh) {
     return {
-      lead: 'Nothing is slipping yet.',
+      lead: "You haven't started this one yet.",
       detail: `${goal.name} just hasn't been started, the first entry is the one that matters`,
       driver: 'fresh',
     }
